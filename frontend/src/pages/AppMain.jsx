@@ -126,7 +126,7 @@ export const Upload = () => {
     const f = [...files].filter((x) => x.type.startsWith("video/") || /\.(mp4|mov|webm)$/i.test(x.name));
     if (!f.length) return toast.error("Please choose an MP4, MOV or WEBM video.");
     const next = [...items, ...f.map((file, i) => ({ file, url: URL.createObjectURL(file), angle: ANGLES[(items.length + i) % 3][0], progress: 0 }))].slice(0, maxVideos);
-    if (items.length + f.length > maxVideos) toast.info(`Your plan allows ${maxVideos} video(s) per analysis.`);
+    if (items.length + f.length > maxVideos) toast.info(`Your plan allows ${maxVideos} ${maxVideos === 1 ? "video" : "videos"} per analysis.`);
     setItems(next);
   };
   const start = async () => {
@@ -151,7 +151,7 @@ export const Upload = () => {
   if (!status) return <p className="text-slate-400">Loading…</p>;
   return (
     <div><Seo title="New analysis" path="/app/upload" noindex />
-      <PageHeader eyebrow="New analysis" title="Upload a cricket video" desc={`Up to ${staff ? 3 : maxVideos} video(s) of any length, ${ent?.max_file_mb || 100} MB max. MP4, MOV or WEBM. For long clips we find the main shot or delivery and analyse it frame by frame.`} />
+      <PageHeader eyebrow="New analysis" title="Upload a cricket video" desc={`Up to ${staff ? 3 : maxVideos} ${(staff ? 3 : maxVideos) === 1 ? "video" : "videos"} of any length, ${ent?.max_file_mb || 100} MB max. MP4, MOV or WEBM. For long clips we find the main shot or delivery and analyse it frame by frame.`} />
       <ConsentGate status={status} reload={loadStatus} />
       {!staff && allowed.length === 0 ? <Empty title="No active plan" desc="Choose a plan to start analysing videos." action={<Button asChild><Link to="/app/billing">View plans</Link></Button>} testid="upload-no-plan" /> :
       <div className="space-y-6">

@@ -3,7 +3,7 @@ from collections import OrderedDict
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from email.message import EmailMessage
-from dotenv import load_dotenv
+from dotenv import load_dotenv, dotenv_values
 from fastapi import Request, HTTPException, Depends, Response
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReturnDocument
@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.INFO, format='{"t":"%(asctime)s","lvl":"%(leve
 log = logging.getLogger("cricanalyze")
 
 SECRET = os.environ["APP_SECRET"]
-APP_URL = os.environ["APP_URL"].rstrip("/")
+APP_URL = (dotenv_values(Path(__file__).parent / ".env").get("APP_URL") or os.environ["APP_URL"]).rstrip("/")
 COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "true") == "true"
 SESSION_DAYS = 14
 LLM_KEY = os.environ.get("EMERGENT_LLM_KEY")
@@ -375,7 +375,12 @@ def get_object(path):
         with _obj_guard:
             if path in _obj_cache:
                 return _obj_cache[path]
-        val = _fetch_object(path)
+        try:
+            val = _fetch_object(path)
+        except Exception:
+            with _obj_guard:
+                _obj_locks.pop(path, None)
+            raise
         with _obj_guard:
             _obj_cache[path] = val
             while sum(len(v[0]) for v in _obj_cache.values()) > _OBJ_CACHE_MAX and len(_obj_cache) > 1:

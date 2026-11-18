@@ -12,6 +12,7 @@ router = APIRouter(prefix="/api")
 OPEN = ("/api/maintenance", "/api/auth/", "/api/billing/webhook")
 _cache = {"at": 0.0, "doc": None}
 log = logging.getLogger("cricanalyze")
+_tasks = set()
 
 
 async def notify_users(start, end, message):
@@ -88,6 +89,8 @@ async def save(body: MaintIn, request: Request, a=Depends(ADMIN)):
     await db.settings.update_one({"_id": "maintenance"}, {"$set": doc}, upsert=True)
     _cache["at"] = 0
     if notify:
-        asyncio.create_task(notify_users(s, e, msg))
+        task = asyncio.create_task(notify_users(s, e, msg))
+        _tasks.add(task)
+        task.add_done_callback(_tasks.discard)
     await audit(a["id"], "admin.maintenance", None, {"enabled": body.enabled, "start_at": body.start_at, "end_at": body.end_at}, request)
     return {**_out(await _doc()), "users_notified": bool(notify)}

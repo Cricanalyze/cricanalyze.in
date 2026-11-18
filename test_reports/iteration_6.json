@@ -1,0 +1,36 @@
+{
+  "summary": "Tested all 6 items in this session's request (backend and frontend). Everything works. (1) Media streaming: test_media_range_legal.py and test_media_cold_cache.py pass, 7/7, including 30 parallel Range requests per asset with every response 206. On qa.player job 18864366759e4e2c8da2978c8757105c, the AnalysisViewer plays when viewer-play is pressed (currentTime advances, video.error is null). Pause/play and 5 rapid toggles cause no pageerror and no 'no supported sources' or 'Unhandled' text. (2) With every /api/media request forced to 503, the viewer retries (23 media hits) and then shows viewer-video-error with viewer-video-reload. Reload recovers playback. No pageerror. (3) All 5 legal pages: no 'Draft prepared' text; legal-updated shows 'Last updated: 18 November 2026'; legal-company names Buddy Innovations and Technologies Private Limited; 4-10 headed sections each; refund policy has a 'No refund once credits are used' section; the footer says 'Private Limited' and no 'Pvt'. (4) Upload page bowling demo: /demo/bowling-side-on.mp4 is 4.97s at 1280x722, animated style with no pads. It plays and ending it unlocks the dropzone (localStorage demo_watched.bowling=true). The batting demo still works. (5) Maintenance notify, tested in-process with ASGI and notify_users patched to email only +qa@cricanalyze.in addresses, so the owner was never emailed: the first save returns users_notified=true and email_logs gets template='maintenance' entries (accepted). Re-saving the same schedule, re-sending the same times as naive IST, changing only the message, disabling, and a window in the past all return users_notified=false. Changing the end time notifies again. A player gets 403. Maintenance was left disabled (checked on the live /api/maintenance). (6) The report PDF (v4.2) has the red (#DC2626) line 'Please go through the website for the in-detail analysis:' near the top of page 1, with a clickable /app/analyses/{job_id} link. A text-block check on all 4 pages found no footer overlap. deliver_report sent qa.player an email with the PDF attached (cricanalyze-18864366.pdf, 551 KB), and the email body has the note.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "Email/PDF links (APP_URL)", "issue": "The running backend's APP_URL is https://b36e96df-...preview.emergentagent.com. It comes from /etc/supervisor/conf.d/supervisord.conf environment=APP_URL and takes precedence over backend/.env APP_URL (cricket-stats-188...), because load_dotenv does not override. As a result, the PDF red-note link and the report/maintenance email links point to the old preview domain. This is environment configuration. Check APP_URL in deployment, or call load_dotenv(override=True) if .env should win."},
+      {"endpoint": "PUT /api/admin/maintenance (notify_users)", "issue": "asyncio.create_task(notify_users(...)) does not keep a reference to the task, so it can be garbage-collected. Sending is sequential and in-process (SMTP takes ~1.5s per user plus a 0.5s sleep). With many users, a backend restart or hot reload during the send loses the rest of the batch, and those email_logs stay 'queued' with no resume. Consider a persisted queue/job."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Upload page", "issues": ["bowling-side-on.mp4 is 9.6 MB for 5s (~15 Mbps), while the batting demo is 0.4 MB. Re-encode it (e.g. CRF 28, 720p) for mobile users.", "Copy reads 'Up to 1 video(s)'. This is awkward and could be pluralised properly."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iter6_maintenance_notify.py", "/app/backend/tests/test_iter6_report_pdf_note.py", "/app/backend/tests/test_media_range_legal.py", "/app/backend/tests/test_media_cold_cache.py"],
+  "action_items": [
+    "Optional: check that APP_URL is correct in deployment (supervisor env currently overrides .env with an old preview domain, so the PDF/email links point there).",
+    "Optional: keep a reference to the maintenance notify task and/or move it to a persisted queue.",
+    "Optional: compress the bowling demo video."
+  ],
+  "critical_code_review_comments": [
+    "core.get_object: if _fetch_object raises, the per-path lock is never popped from _obj_locks (small leak). On a cold cache, the first Range request waits for the whole object to download.",
+    "core.get_object: the cache can hold up to 300 MB per worker process. Each insert recomputes the total size with sum() over all entries (fine at the current scale).",
+    "deliver_report now always attaches the PDF regardless of the pdf_export entitlement (as requested). This means free-tier users get the PDF by email even if PDF download is a paid feature. Confirm this is the intended business rule.",
+    "Legal 'Last updated' date is hard-coded in constants/legal.js. That is fine, but it must be bumped manually when the content changes."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter6_maintenance_notify.py", "/app/backend/tests/test_iter6_report_pdf_note.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "None. The maintenance setting was toggled and left disabled. Real maintenance emails went to the QA (+qa) users only, and a report_delivery email (with the PDF) went to qa.player. The owner was not emailed. Some maintenance email_logs from the in-process test stayed 'queued' because the test process exited mid-send (test artifact).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "test_credentials": "qa.player+qa@cricanalyze.in / QaPlayer#2026, qa.admin+qa@cricanalyze.in / QaAdmin#2026 (from /app/memory/test_credentials.md)",
+  "context_for_next_testing_agent": "Use qa.player job 18864366759e4e2c8da2978c8757105c (completed batting) for viewer/PDF tests. test_iter6_maintenance_notify.py runs the app in-process (httpx ASGITransport, base_url https://test because cookies are Secure) and patches maintenance.notify_users so the owner is never emailed. Do NOT test maintenance notify via the live UI/API, because it emails cricanalyze.in@gmail.com. A new upload to full analysis was not repeated this iteration (an existing completed analysis was used, as advised)."
+}

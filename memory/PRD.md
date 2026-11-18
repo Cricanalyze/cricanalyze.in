@@ -111,3 +111,12 @@ User request: always show Overall Technique Score XX/100 when >=1 valid measurem
 ## Re-import (2026-11-18)
 - Cloned github.com/Cricanalyze/cricanalyze-4 into /app as-is; deps installed; new APP_SECRET + APP_URL (preview); DEV_EMAIL_OUTBOX=true (example.com OTPs shown in dev outbox); EMERGENT_LLM_KEY set
 - Keys added 2026-11-18: ANTHROPIC_API_KEY, SMTP_PASS, RAZORPAY test keys — verified SMTP login, Razorpay test order, Claude reply. Still missing: RAZORPAY_WEBHOOK_SECRET, ULTRALYTICS_API_KEY (optional)
+
+## Session 2026-11-18 (later)
+- Fixed viewer "no supported sources": object storage 503 under parallel Range requests -> in-memory LRU cache + per-path lock + retry (core.get_object); viewer retries video load, catches play() rejection, shows Reload
+- Legal pages rewritten (constants/legal.js): full sections, "Last updated 18 November 2026", product of Buddy Innovations and Technologies Private Limited, refund = none once credits used; draft notice removed; "Private Limited" everywhere
+- Bowling demo: user's own clip (scripts/bowling_source.mp4) turned into painted/animated look locally via scripts/animate_demo.py (no AI credits)
+- Maintenance scheduling emails all verified active users (template 'maintenance', only when schedule changes)
+- Report email always attaches PDF; PDF v4.2 page 1 red note "Please go through the website for the in-detail analysis" + link
+- Tested: iteration_6 100% backend/frontend
+- Open: APP_URL secret still holds old preview domain (links in emails/PDF); maintenance notify is in-process (not persisted)
