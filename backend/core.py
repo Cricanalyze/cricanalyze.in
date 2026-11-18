@@ -1,4 +1,5 @@
-import os, hmac, hashlib, secrets, uuid, logging, smtplib, ssl, asyncio, time, html as htmllib
+import os, hmac, hashlib, secrets, uuid, logging, smtplib, ssl, asyncio, time, threading, html as htmllib
+from collections import OrderedDict
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from email.message import EmailMessage
@@ -347,13 +348,38 @@ def put_object(path, data: bytes, content_type: str):
         return r.json()
 
 
-def get_object(path):
-    for attempt in range(2):
-        r = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": init_storage(attempt > 0)}, timeout=120)
-        if r.status_code == 404 and attempt == 0:
+_obj_cache, _obj_locks, _obj_guard = OrderedDict(), {}, threading.Lock()
+_OBJ_CACHE_MAX = 300 * 1024 * 1024
+
+
+def _fetch_object(path):
+    for attempt in range(5):
+        r = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": init_storage(attempt == 1)}, timeout=120)
+        if r.status_code in (404, 429, 500, 502, 503, 504) and attempt < 4:
+            time.sleep(0.4 * (2 ** attempt))
             continue
         r.raise_for_status()
         return r.content, r.headers.get("Content-Type", "application/octet-stream")
+
+
+def get_object(path):
+    # Stored objects are immutable, so a small in-memory LRU avoids refetching on every Range request.
+    with _obj_guard:
+        if path in _obj_cache:
+            _obj_cache.move_to_end(path)
+            return _obj_cache[path]
+        lock = _obj_locks.setdefault(path, threading.Lock())
+    with lock:
+        with _obj_guard:
+            if path in _obj_cache:
+                return _obj_cache[path]
+        val = _fetch_object(path)
+        with _obj_guard:
+            _obj_cache[path] = val
+            while sum(len(v[0]) for v in _obj_cache.values()) > _OBJ_CACHE_MAX and len(_obj_cache) > 1:
+                _obj_cache.popitem(last=False)
+            _obj_locks.pop(path, None)
+        return val
 
 
 def sign_media(asset_id: str, ttl=900):

@@ -72,6 +72,7 @@ export const AnalysisViewer = ({ b }) => {
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const retries = useRef(0);
   const [rate, setRate] = useState(0.25);
   const { fps, byFrame } = useFrameState(b);
   const frame = Math.floor(t * fps + 0.1);
@@ -110,7 +111,12 @@ export const AnalysisViewer = ({ b }) => {
 
   const seek = (s) => { const v = vRef.current; v.pause(); v.currentTime = Math.max(0, Math.min(dur, s)); setT(v.currentTime); };
   const step = (n) => { const cur = Math.floor((vRef.current?.currentTime || 0) * fps + 0.1); seek((cur + n) / fps + 0.5 / fps); };
-  const toggle = () => { const v = vRef.current; v.paused ? v.play() : v.pause(); };
+  const toggle = () => { const v = vRef.current; if (!v || failed) return; if (v.paused) v.play()?.catch(() => {}); else v.pause(); };
+  const onVideoError = () => {
+    const v = vRef.current;
+    if (v && retries.current < 3) { retries.current += 1; setTimeout(() => v.load(), 800 * retries.current); return; }
+    setLoading(false); setFailed(true);
+  };
   const setSpeed = (r) => { setRate(r); if (vRef.current) vRef.current.playbackRate = r; };
 
   return (
@@ -122,8 +128,8 @@ export const AnalysisViewer = ({ b }) => {
           <div className="flex rounded-md overflow-hidden border border-white/10" role="group" aria-label="Playback speed">{[0.1, 0.25, 0.5, 1].map((r) => <button key={r} onClick={() => setSpeed(r)} className={`px-2 py-0.5 ${rate === r ? "bg-[#10B981] text-[#0B132B]" : "hover:bg-white/10"}`} data-testid={`viewer-speed-${r * 100}`}>{r === 1 ? "Normal" : `${r}×`}</button>)}</div></div></div>
       <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
         {b.video_url && <video ref={vRef} src={media(b.video_url)} className="absolute inset-0 w-full h-full object-contain" playsInline preload="auto"
-          onLoadedData={() => { const v = vRef.current; setLoading(false); setDur(v.duration || 0); v.playbackRate = rate; const t0 = b.pose_track?.[0]?.t; if (t0 > 1 && v.currentTime < 0.1) { v.currentTime = t0; setT(t0); } draw(); }} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onSeeked={draw} onError={() => { setLoading(false); setFailed(true); }} data-testid="viewer-video" />}
-        {failed && <div className="absolute inset-0 grid place-items-center text-center text-sm text-amber-300 p-6 bg-black/80" data-testid="viewer-video-error">This browser can't play this video. The analysis results are unaffected; try Chrome, Safari or Edge.</div>}
+          onLoadedData={() => { const v = vRef.current; setLoading(false); setDur(v.duration || 0); v.playbackRate = rate; const t0 = b.pose_track?.[0]?.t; if (t0 > 1 && v.currentTime < 0.1) { v.currentTime = t0; setT(t0); } draw(); }} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onSeeked={draw} onError={onVideoError} data-testid="viewer-video" />}
+        {failed && <div className="absolute inset-0 grid place-items-center text-center text-sm text-amber-300 p-6 bg-black/80" data-testid="viewer-video-error"><div>The video couldn't be loaded. The analysis results are unaffected.<button onClick={() => window.location.reload()} className="block mx-auto mt-3 px-3 py-1 rounded bg-[#10B981] text-[#0B132B] font-semibold" data-testid="viewer-video-reload">Reload</button></div></div>}
         <canvas ref={cRef} className="absolute inset-0 w-full h-full pointer-events-none" data-testid="viewer-canvas" />
         {here.length > 0 && <div className="absolute top-2 left-2 flex flex-col gap-1 pointer-events-none" data-testid="viewer-event-caption">{here.map((m, i) => <span key={i} className="text-xs font-semibold bg-[#0B132B]/85 text-white px-2 py-1 rounded">{m.label}</span>)}</div>}
         {loading && <div className="absolute inset-0 grid place-items-center text-slate-400 text-sm" data-testid="viewer-loading"><Loader2 className="animate-spin" /></div>}
