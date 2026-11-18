@@ -110,4 +110,4 @@ User request: always show Overall Technique Score XX/100 when >=1 valid measurem
 
 ## Re-import (2026-11-18)
 - Cloned github.com/Cricanalyze/cricanalyze-4 into /app as-is; deps installed; new APP_SECRET + APP_URL (preview); DEV_EMAIL_OUTBOX=true (example.com OTPs shown in dev outbox); EMERGENT_LLM_KEY set
-- Missing secrets (not in repo): ANTHROPIC_API_KEY, SMTP_PASS, RAZORPAY_KEY_ID/SECRET, ULTRALYTICS_API_KEY (pose/ball default to local models)
+- Keys added 2026-11-18: ANTHROPIC_API_KEY, SMTP_PASS, RAZORPAY test keys — verified SMTP login, Razorpay test order, Claude reply. Still missing: RAZORPAY_WEBHOOK_SECRET, ULTRALYTICS_API_KEY (optional)
