@@ -10,17 +10,21 @@ CONTROL = os.environ.get("INTEGRATION_PROXY_URL", "https://integrations.emergent
 EP = "fal-ai/kling-video/v3/pro/text-to-video"
 H = {"Authorization": f"Bearer {KEY}", "Content-Type": "application/json"}
 OUT = "/app/frontend/public/demo/"
-NEG = "text, captions, subtitles, watermark, logo, letters, numbers, scoreboard overlay, blur, distortion, extra limbs, low quality, cartoon"
+NEG = "leg pads, batting pads, knee pads, shin guards, helmet, batting gloves, bat, text, captions, subtitles, watermark, logo, letters, numbers, scoreboard overlay, blur, distortion, extra limbs, low quality, cartoon"
 
 CLIPS = {
     "batting-front-on.mp4": "Photorealistic cinematic 3D render of a professional cricket batsman in white kit, helmet and pads on a sunlit green cricket pitch. "
     "Static camera on a tripod at hip height placed directly in front of the batsman, behind the bowler's end (front-on view), whole body, bat and feet fully in frame. "
     "The batsman taps the bat, lifts it in a high backlift, strides forward and plays a smooth front-foot cover drive, transferring weight onto the front leg, then holds a balanced high follow-through. "
     "Natural daylight, sharp detail, no camera movement, no zoom.",
-    "bowling-side-on.mp4": "Photorealistic cinematic 3D render of a professional fast bowler in white cricket kit on a sunlit green cricket pitch. "
-    "Static camera on a tripod at hip height placed side-on to the crease, about 12 metres away, whole body visible from the last run-up strides to the follow-through. "
-    "The bowler runs in, leaps into the gather, lands back foot then front foot with a braced front leg, swings the bowling arm straight over the top to release the red ball, and follows through across the body. "
-    "Natural daylight, sharp detail, no camera movement, no zoom.",
+    "bowling-side-on.mp4": "Photorealistic broadcast-quality video of a professional right-arm fast bowler in a real cricket stadium. "
+    "Clothing: plain white cricket shirt, plain white cricket trousers, white spiked shoes. NO leg pads, NO batting pads, NO helmet, NO gloves, NO bat - only a red cricket ball in the right hand. "
+    "Setting: a 22-yard cricket pitch of light brown rolled turf with white crease lines, running horizontally left to right across the frame; three wooden stumps with bails stand on the popping-crease end at the right side of the frame. "
+    "Background: lush green outfield, white boundary rope, white sight screen and spectator stands far behind, clear blue sky, bright afternoon sun. "
+    "Camera: static tripod at hip height, exactly side-on and perpendicular to the pitch, about 12 metres from the bowler, whole body always in frame. "
+    "Action: the bowler runs in from the left along the pitch toward the stumps on the right, leaps into the gather, lands back foot then front foot next to the stumps with a braced front leg, "
+    "swings the bowling arm straight over the top and releases the ball down the pitch toward the right, then follows through. "
+    "Natural daylight, sharp detail, realistic human motion, no camera movement, no zoom, no cuts.",
 }
 
 
@@ -52,5 +56,6 @@ def gen(name, prompt):
 
 if __name__ == "__main__":
     with ThreadPoolExecutor(2) as ex:
-        for line in ex.map(lambda kv: gen(*kv), CLIPS.items()):
+        only = sys.argv[1:] or list(CLIPS)
+        for line in ex.map(lambda kv: gen(*kv), [(k, CLIPS[k]) for k in only]):
             print(line, flush=True)
