@@ -1,0 +1,29 @@
+{
+  "summary": "Frontend-only test of the Dashboard ProgressChart (Technique score progress). Passed: the card shows up above 'Recent analyses' for qa.player. The title, Batting/Bowling toggle, Latest/Best/Change stats, X ticks #1..#3, Y 0-100, dashed 'Best' line and provisional hollow dots are all there. Latest, Best and Change (97, 97, 0) match GET /api/timeline?type=batting in order (3 reports, all 97 provisional, baseline=false). The tooltip shows 'Report #n · <date, time> IST' and '97 (provisional)' for all 3 points. The Bowling toggle shows progress-chart-empty with the right text, and switching back to Batting works. The card is hidden for qa.newplayer (0 completed). Mobile at 390px has no horizontal overflow (scrollWidth 390). Regression: the Analyses > Timeline tab still renders its chart. FAILED: clicking a point/chart does not navigate to /app/analyses/{job_id}. The URL stays /app, both when clicking the chart area and when clicking a dot directly.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "ProgressChart onClick (frontend/src/components/ProgressChart.jsx line 36)", "issue": "Clicking a point does not navigate to the report. The installed recharts is 3.6.0, and in Recharts 3 the chart-level onClick state no longer includes `activePayload`. So `st?.activePayload?.[0]?.payload` is always undefined and nav() never runs. Reproduced: clicking the chart surface at 50% width and clicking a dot circle both leave the URL at /app.", "selector": "[data-testid='progress-chart']", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard progress card", "issues": ["Change = 0 shows as '0 —' (the Minus icon looks like an em-dash/'no value' next to the 0). Consider hiding the icon when the change is 0, or using a clearer label like '±0'.", "Minor: the tooltip times (report created_at) differ from the 'Recent analyses' row times (job created_at): e.g. 1:43, 1:54 and 2:09 vs 1:39, 1:46 and 2:04. This may confuse users matching a point to a row."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Fix click-to-open in ProgressChart for Recharts 3. Use the index, e.g. `const open = (st) => { const i = Number(st?.activeTooltipIndex ?? st?.activeIndex); const p = Number.isInteger(i) ? rows[i] : null; if (p?.job) nav(`/app/analyses/${p.job}`); };`. Or add onClick on the custom <Dot> / activeDot ({onClick: (_, e) => nav(`/app/analyses/${e.payload.job}`)}). Then verify that clicking a dot navigates.",
+    "Optional: tidy the zero-change display ('0 —')."
+  ],
+  "critical_code_review_comments": [
+    "ProgressChart relies on activePayload, which was removed from the chart onClick state in Recharts v3 (package.json has recharts 3.6.0).",
+    "Locked state: any API error (402 entitlement, or a network/500 error) renders under data-testid progress-chart-locked. A non-402 error would wrongly look like a 'locked' message. Consider checking e.response.status === 402. Not tested at runtime (no user without timeline entitlement was used).",
+    "Single-report baseline text: by code review, it shows when d.baseline is true (len<=1). Not tested at runtime, because qa.player has 0 bowling and 3 batting reports."
+  ],
+  "updated_files": ["/app/test_reports/iteration_9.json"],
+  "success_rate": {"backend": "N/A (skipped)", "frontend": "~88% (7/8 checks; click navigation failed)"},
+  "seed_data_creation": "None. No data was created or modified.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "qa.player has 3 batting reports (all 97 provisional) and 0 bowling. qa.newplayer has 0 completed analyses, so the card is hidden. Retest: click the #1 dot and expect /app/analyses/f7c71b40...; #2 -> 1c54b58c...; #3 -> 18864366... (job_id prefixes from /api/timeline)."
+}

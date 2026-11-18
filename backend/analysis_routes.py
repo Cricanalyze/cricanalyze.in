@@ -450,9 +450,12 @@ async def timeline(type: str = "batting", player_id: Optional[str] = None, u=Dep
         raise HTTPException(402, "The player timeline isn't included in your plan.")
     reps = await db.analysis_reports.find({"user_id": owner, "analysis_type": type}, {"_id": 0, "job_id": 1, "created_at": 1, "scores": 1,
                                                                                      "summary": 1, "overall_confidence": 1, "biomech.score": 1}).sort("created_at", 1).to_list(200)
+    jobs = {j["id"]: j["created_at"] for j in await db.analysis_jobs.find({"id": {"$in": [r["job_id"] for r in reps]}}, {"id": 1, "created_at": 1}).to_list(200)}
     for r in reps:
+        r["created_at"] = jobs.get(r["job_id"], r["created_at"])
         r["technique_score"] = report_view.list_summary(r)
         r.pop("biomech", None)
+    reps.sort(key=lambda r: r["created_at"])
     return {"reports": reps, "baseline": len(reps) <= 1}
 
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { TrendingUp, TrendingDown } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from "recharts";
 import { api, errMsg, fmtDateTime } from "@/lib/api";
 import { Card } from "@/components/Common";
@@ -14,13 +14,14 @@ const Stat = ({ label, value, testid, children }) => (
 
 const Change = ({ d }) => {
   if (d == null) return <Stat label="Change" value="—" testid="progress-change" />;
-  const Icon = d > 0 ? TrendingUp : d < 0 ? TrendingDown : Minus;
+  const Icon = d > 0 ? TrendingUp : d < 0 ? TrendingDown : null;
   const c = d > 0 ? "text-[#10B981]" : d < 0 ? "text-red-400" : "text-slate-300";
-  return <Stat label="Change" value={<span className={c}>{d > 0 ? "+" : ""}{d}</span>} testid="progress-change"><Icon size={18} className={c} /></Stat>;
+  return <Stat label="Change" value={<span className={c}>{d > 0 ? "+" : ""}{d}</span>} testid="progress-change">{Icon ? <Icon size={18} className={c} /> : <span className="text-xs font-normal text-slate-400">no change</span>}</Stat>;
 };
 
-const Dot = ({ cx, cy, payload, index }) => cx == null || payload.value == null ? null :
-  <circle key={index} cx={cx} cy={cy} r={5} stroke="#10B981" strokeWidth={2} fill={payload.status === "provisional" ? "#0B132B" : "#10B981"} style={{ cursor: "pointer" }} />;
+const Dot = ({ cx, cy, payload, index, onOpen }) => cx == null || payload.value == null ? null :
+  <circle key={index} cx={cx} cy={cy} r={6} stroke="#10B981" strokeWidth={2} fill={payload.status === "provisional" ? "#0B132B" : "#10B981"} style={{ cursor: "pointer" }}
+    onClick={(e) => { e.stopPropagation(); onOpen(payload.job); }} data-testid={`progress-point-${index + 1}`} />;
 
 export const ProgressChart = ({ defaultType = "batting" }) => {
   const nav = useNavigate();
@@ -33,7 +34,8 @@ export const ProgressChart = ({ defaultType = "batting" }) => {
   const scored = rows.filter((r) => r.value != null);
   const latest = scored.at(-1)?.value, best = scored.length ? Math.max(...scored.map((r) => r.value)) : null;
   const change = scored.length > 1 ? Math.round((latest - scored[0].value) * 10) / 10 : null;
-  const open = (st) => { const p = st?.activePayload?.[0]?.payload; if (p?.job) nav(`/app/analyses/${p.job}`); };
+  const go = (job) => job && nav(`/app/analyses/${job}`);
+  const open = (st) => { const i = Number(st?.activeTooltipIndex ?? st?.activeIndex); go((st?.activePayload?.[0]?.payload || rows[i])?.job); };
   return (
     <Card className="mb-8" data-testid="progress-chart-card">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -50,7 +52,7 @@ export const ProgressChart = ({ defaultType = "batting" }) => {
             {best != null && <ReferenceLine y={best} stroke="#F59E0B" strokeDasharray="4 4" label={{ value: "Best", fill: "#F59E0B", fontSize: 10, position: "insideTopRight" }} />}
             <Tooltip contentStyle={{ background: "#1C2541", border: "none", borderRadius: 8 }} labelFormatter={(l, p) => `Report ${l} · ${p?.[0]?.payload?.date ?? ""}`}
               formatter={(v, n, p) => [v == null ? "No score" : p.payload.status === "provisional" ? `${v} (provisional)` : v, "Technique score"]} />
-            <Area type="monotone" dataKey="value" stroke="#10B981" strokeWidth={2.5} fill="url(#pgFill)" connectNulls dot={<Dot />} activeDot={{ r: 7 }} isAnimationActive />
+            <Area type="monotone" dataKey="value" stroke="#10B981" strokeWidth={2.5} fill="url(#pgFill)" connectNulls dot={<Dot onOpen={go} />} activeDot={{ r: 8, style: { cursor: "pointer" } }} isAnimationActive />
           </AreaChart></ResponsiveContainer></div>
           <p className="text-[11px] text-slate-500 mt-2">{d.baseline ? "Baseline only — add another analysis to see change over time." : "Hollow dots are provisional scores (fewer measurements). Scores depend on filming too, so keep the same camera angle for fair comparisons."}</p>
         </>}
