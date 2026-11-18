@@ -6,17 +6,21 @@ src, dst = sys.argv[1], sys.argv[2]
 cap = cv2.VideoCapture(src)
 fps = cap.get(cv2.CAP_PROP_FPS) or 30
 step = 2 if fps > 40 else 1
-tmp = dst + ".raw.mp4"
-w, h = int(cap.get(3)) // 2 * 2, int(cap.get(4)) // 2 * 2
-vw = cv2.VideoWriter(tmp, cv2.VideoWriter_fourcc(*"mp4v"), fps / step, (w, h))
+tmp = dst + ".raw.avi"
+w = 1280
+h = int(round(cap.get(4) * w / cap.get(3) / 2)) * 2
+
+vw = cv2.VideoWriter(tmp, cv2.VideoWriter_fourcc(*"MJPG"), fps / step, (w, h))
 i = 0
 while True:
     ok, f = cap.read()
     if not ok:
         break
     if i % step == 0:
-        f = cv2.resize(f, (w, h))
-        a = cv2.stylization(f, sigma_s=60, sigma_r=0.45)
+        f = cv2.resize(f, (w, h), interpolation=cv2.INTER_LANCZOS4)
+        f = cv2.fastNlMeansDenoisingColored(f, None, 3, 3, 5, 15)
+        a = cv2.stylization(f, sigma_s=25, sigma_r=0.25)
+        a = cv2.addWeighted(a, 1.6, cv2.GaussianBlur(a, (0, 0), 2.0), -0.6, 0)
         hsv = cv2.cvtColor(a, cv2.COLOR_BGR2HSV).astype(np.float32)
         hsv[..., 1] = np.clip(hsv[..., 1] * 1.35, 0, 255)
         hsv[..., 2] = np.clip(hsv[..., 2] * 1.12 + 8, 0, 255)
@@ -25,8 +29,8 @@ while True:
 vw.release()
 logo = "/app/frontend/public/logo.png"
 subprocess.run([imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-loglevel", "error", "-i", tmp, "-i", logo, "-filter_complex",
-                "[0:v]scale=1280:-2[v];[1:v]scale=200:-1,format=rgba,colorkey=0xFFFFFF:0.25:0.1,colorchannelmixer=aa=0.75[l];[v][l]overlay=W-w-24:H-h-20",
-                "-an", "-c:v", "libx264", "-preset", "slow", "-crf", "24", "-pix_fmt", "yuv420p", "-movflags", "+faststart", dst], check=True)
+                "[0:v]null[v];[1:v]scale=200:-1,format=rgba,colorkey=0xFFFFFF:0.25:0.1,colorchannelmixer=aa=0.75[l];[v][l]overlay=W-w-24:H-h-20",
+                "-an", "-c:v", "libx264", "-preset", "slow", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart", dst], check=True)
 import os
 os.remove(tmp)
 print("ok", dst)
