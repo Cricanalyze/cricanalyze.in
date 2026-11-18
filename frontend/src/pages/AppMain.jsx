@@ -82,7 +82,7 @@ const FilmingChecklist = ({ type }) => (
     <ul className="text-sm text-slate-300 space-y-1.5">{CHECKS[type].map((c) => <li key={c} className="flex gap-2"><CheckCircle2 size={16} className="text-[#10B981] shrink-0 mt-0.5" />{c}</li>)}</ul>
     <p className="text-xs text-slate-500 mt-3">30–60 fps at 720p or higher gives the most measurements.</p></Card>);
 
-const DEMOS = { batting: ["/demo/batting-front-on.mp4", "Film batting front-on, from behind the bowler"], bowling: ["/demo/bowling-side-on.mp4", "Film bowling side-on, 10–15 m from the crease"] };
+const DEMOS = { batting: ["/demo/batting-front-on.mp4", "Film batting front-on, from behind the bowler"] };
 
 const DemoVideo = ({ type, watched, onWatched }) => {
   const [pct, setPct] = useState(0);
@@ -158,8 +158,8 @@ export const Upload = () => {
         <div data-testid="type-step"><p className="text-sm text-slate-400 mb-2">Step 1 · What are you analysing?</p>
           <div className="flex gap-2">{["batting", "bowling"].map((t) => <button key={t} disabled={!allowed.includes(t)} title={allowed.includes(t) ? "" : `${t} analysis isn't included in your plan`} onClick={() => pickType(t)} data-testid={`type-${t}-btn`}
             className={`flex-1 py-4 rounded-lg border capitalize font-medium transition-colors disabled:opacity-40 ${type === t ? "border-[#10B981] bg-[#10B981]/10" : "border-white/10 hover:border-white/30"}`}>{t}</button>)}</div></div>
-        {type && <div className="max-w-3xl"><p className="text-sm text-slate-400 mb-2">Step 2 · Watch how to film it</p><DemoVideo type={type} watched={!!watched[type]} onWatched={markWatched} /></div>}
-        {type && watched[type] && <div className="grid lg:grid-cols-5 gap-6" data-testid="upload-step">
+        {type && DEMOS[type] && <div className="max-w-3xl"><p className="text-sm text-slate-400 mb-2">Step 2 · Watch how to film it</p><DemoVideo type={type} watched={!!watched[type]} onWatched={markWatched} /></div>}
+        {type && (watched[type] || !DEMOS[type]) && <div className="grid lg:grid-cols-5 gap-6" data-testid="upload-step">
         <div className="lg:col-span-3 space-y-4"><p className="text-sm text-slate-400">Step 3 · Upload your video</p>
           <label onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={(e) => { e.preventDefault(); setDrag(false); add(e.dataTransfer.files); }}
             className={`block border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors ${drag ? "border-[#10B981] bg-[#10B981]/5" : "border-white/15 hover:border-[#00B4D8]/50"}`} data-testid="dropzone">
