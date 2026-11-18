@@ -6,7 +6,7 @@ from pydantic import BaseModel, EmailStr, Field
 from argon2.exceptions import VerifyMismatchError, InvalidHashError
 from core import (db, ph, now, uid, hsign, norm_email, client_ip, rate_limit, audit, create_session, clear_session_cookies,
                   session_from_request, current_user, public_user, issue_otp, verify_otp, send_email, require_step_up,
-                  get_settings, SELF_SIGNUP_ROLES, put_object, BUCKET_PREFIX, sign_media, is_minor, entitlements)
+                  get_settings, SELF_SIGNUP_ROLES, put_object, BUCKET_PREFIX, sign_media, is_minor, entitlements, APP_URL)
 
 router = APIRouter(prefix="/api")
 GENERIC = "If the details are valid, we've emailed a 6-digit code. Check your inbox (and spam folder)."

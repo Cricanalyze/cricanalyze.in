@@ -60,13 +60,24 @@ const Users = () => {
 
 const PLAN_BLANK = { name: "", slug: "", product: "batting", billing: "monthly", price_inr: 499, currency: "INR", period_days: 30, credits: 5, videos_per_analysis: 1, max_duration_s: 25, max_file_mb: 100, analysis_types: ["batting"],
   report_level: "detailed", pdf_export: true, history_access: true, comparisons: true, timeline: true, multi_angle: false, ai_coach: true, training_planner: true, academy_features: false, active: true, sort: 10, description: "", valid_until: null };
+const OfferTagCard = () => {
+  const [tag, setTag] = useState(null);
+  useEffect(() => { api.get("/admin/settings").then(({ data }) => setTag(data.offer?.tag || "")).catch(() => setTag("")); }, []);
+  const save = async (v) => { try { await api.put("/admin/settings", { offer: { tag: v }, confirm: true }); setTag(v); resetOfferTag(); toast.success(v ? `Offer tag "${v}" is live on all plans.` : "Offer tag removed."); } catch (e) { toast.error(errMsg(e)); } };
+  if (tag === null) return null;
+  return (<Card className="mb-6 border-[#F59E0B]/40" data-testid="offer-tag-card"><h3 className="font-semibold mb-1">Price offer tag</h3>
+    <p className="text-xs text-slate-400 mb-3">Shown on every plan next to the price, e.g. "New Year Offer" or "Diwali Offer". Every price also shows a struck-out 1.5× price.</p>
+    <div className="flex flex-wrap gap-2"><Input className="max-w-xs" maxLength={40} placeholder="e.g. Diwali Offer" value={tag} onChange={(e) => setTag(e.target.value)} data-testid="offer-tag-input" />
+      <Button onClick={() => save(tag.trim())} data-testid="offer-tag-save-btn">Save tag</Button><Button variant="secondary" onClick={() => save("")} disabled={!tag} data-testid="offer-tag-clear-btn">Remove tag</Button></div></Card>);
+};
+
 const Plans = () => {
   const [d, load] = useLoad("/admin/plans");
   const [ed, setEd] = useState(null);
   const save = async () => { try { const { id, created_at, updated_at, placeholder_price, ...body } = ed; if (id) await api.put(`/admin/plans/${id}`, body); else await api.post("/admin/plans", body); toast.success("Plan saved."); setEd(null); load(); } catch (e) { toast.error(errMsg(e)); } };
   const num = ["price_inr", "period_days", "credits", "videos_per_analysis", "max_duration_s", "max_file_mb", "sort"];
   const bools = ["pdf_export", "history_access", "comparisons", "timeline", "multi_angle", "ai_coach", "training_planner", "academy_features", "active"];
-  return (<div><Button className="mb-4" onClick={() => setEd({ ...PLAN_BLANK })} data-testid="new-plan-btn">New plan</Button>
+  return (<div><OfferTagCard /><Button className="mb-4" onClick={() => setEd({ ...PLAN_BLANK })} data-testid="new-plan-btn">New plan</Button>
     {d && <T testid="admin-plans-table" head={["Plan", "Price", "Credits", "Limits", "Types", "Status", ""]} rows={d.map((p) => [<span>{p.name}{p.placeholder_price && <Badge tone="amber">placeholder price</Badge>}</span>, `${inr(p.price_inr)} / ${p.period_days}d`, p.credits,
       `${p.videos_per_analysis} vid · ${p.max_duration_s}s · ${p.max_file_mb}MB`, p.analysis_types.join(", "), <Badge tone={p.active ? "green" : "slate"}>{p.active ? "active" : "hidden"}</Badge>, <Button size="sm" variant="ghost" onClick={() => setEd({ ...p })} data-testid={`edit-plan-${p.slug}`}>Edit</Button>])} />}
     <Dialog open={!!ed} onOpenChange={() => setEd(null)}><DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto"><DialogHeader><DialogTitle>{ed?.id ? "Edit plan" : "New plan"}</DialogTitle></DialogHeader>
@@ -129,10 +140,8 @@ const SettingsTab = () => {
   const [s, setS] = useState(null);
   useEffect(() => { if (d) setS(d); }, [d]);
   if (!s) return "Loading…";
-  const save = async () => { if (!window.confirm("Apply these platform settings?")) return; try { await api.put("/admin/settings", { ...s, confirm: true }); toast.success("Settings saved."); resetOfferTag(); setD(); } catch (e) { toast.error(errMsg(e)); } };
-  return (<div className="grid lg:grid-cols-2 gap-6"><Card className="lg:col-span-2"><h3 className="font-semibold mb-1">Price offer tag</h3><p className="text-xs text-slate-400 mb-3">Shown on every plan next to the price, e.g. "New Year Offer" or "Diwali Offer". Leave empty to hide. Prices always show a struck-out 1.5× price.</p>
-      <Input className="max-w-sm" maxLength={40} placeholder="e.g. Diwali Offer" value={s.offer?.tag || ""} onChange={(e) => setS({ ...s, offer: { ...s.offer, tag: e.target.value } })} data-testid="offer-tag-input" /></Card>
-    <Card><h3 className="font-semibold mb-3">Feature flags</h3>{Object.entries(s.flags).map(([k, v]) => <label key={k} className="flex justify-between py-2 text-sm">{k.replace(/_/g, " ")}<Switch checked={v} onCheckedChange={(x) => setS({ ...s, flags: { ...s.flags, [k]: x } })} data-testid={`flag-${k}`} /></label>)}</Card>
+  const save = async () => { if (!window.confirm("Apply these platform settings?")) return; try { await api.put("/admin/settings", { ...s, confirm: true }); toast.success("Settings saved."); setD(); } catch (e) { toast.error(errMsg(e)); } };
+  return (<div className="grid lg:grid-cols-2 gap-6"><Card><h3 className="font-semibold mb-3">Feature flags</h3>{Object.entries(s.flags).map(([k, v]) => <label key={k} className="flex justify-between py-2 text-sm">{k.replace(/_/g, " ")}<Switch checked={v} onCheckedChange={(x) => setS({ ...s, flags: { ...s.flags, [k]: x } })} data-testid={`flag-${k}`} /></label>)}</Card>
     <Card><h3 className="font-semibold mb-3">Limits & cost controls</h3>{Object.entries(s.limits).map(([k, v]) => <label key={k} className="flex justify-between items-center py-1.5 text-sm gap-3">{k.replace(/_/g, " ")}<Input type="number" className="w-28 h-8" value={v} onChange={(e) => setS({ ...s, limits: { ...s.limits, [k]: +e.target.value } })} data-testid={`limit-${k}`} /></label>)}</Card>
     <Button onClick={save} className="lg:col-span-2 justify-self-start" data-testid="settings-apply-btn">Save settings</Button></div>);
 };
