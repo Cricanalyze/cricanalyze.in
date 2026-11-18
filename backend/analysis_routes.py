@@ -16,6 +16,7 @@ from pymongo import ReturnDocument
 from core import (db, now, uid, log, audit, current_user, put_object, get_object, sign_media, verify_media_sig, BUCKET_PREFIX,
                   entitlements, ledger, is_minor, get_settings, llm_text, send_email, STAFF, LEVELS, sanitize_error, AI_KEY, AI_MODEL)
 
+MAX_VIDEO_S = 25
 router = APIRouter(prefix="/api")
 ANGLES = ["side_on", "front_on", "behind", "other"]
 
@@ -119,6 +120,8 @@ async def upload_video(file: UploadFile = File(...), analysis_type: str = Form(.
         meta = await asyncio.to_thread(probe, tmp.name)
     if not meta:
         raise HTTPException(415, "We couldn't read this video. Try re-exporting it as MP4 (H.264).")
+    if meta["duration_s"] > MAX_VIDEO_S + 0.5:
+        raise HTTPException(422, f"Video is {meta['duration_s']:.0f} seconds long. Videos must be {MAX_VIDEO_S} seconds or shorter — trim it to the shot or delivery and upload again.")
     if min(meta["width"], meta["height"]) < 240:
         raise HTTPException(422, "Video resolution is too low (minimum 240p). Record at 480p or higher.")
     vid = uid()
@@ -786,13 +789,13 @@ async def deliver_report(job_id, to=None):
         return False
     token = await ensure_share(job)
     job = await db.analysis_jobs.find_one({"id": job_id}, {"_id": 0})
-    attachments, note = None, "Open the report in CricAnalyze for the full view."
+    attachments, note = None, ""
     try:
         viewer = {**owner, "role": "player"}
         rep = await load_report_for(viewer, job)
         await attach_view(viewer, job, rep)
         attachments = [(f"cricanalyze-{job_id[:8]}.pdf", await pdfgen.get_or_build(rep, job, owner), "application/pdf")]
-        note = "Your PDF report is attached. Please go through the website for the in-detail analysis."
+        note = "Your PDF report is attached."
     except Exception as e:
         log.warning(f"report pdf for email failed {sanitize_error(e)}")
     ok = await send_email(to or owner["email"], "report_delivery", {"kind": job["analysis_type"], "link": f"{APP_URL}/app/analyses/{job_id}",

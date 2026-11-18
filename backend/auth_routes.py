@@ -96,7 +96,10 @@ async def verify_email(body: EmailCode, request: Request, response: Response):
     await db.users.update_one({"id": user["id"]}, {"$set": {"email_verified": True, "email_verified_at": now()}})
     user["email_verified"] = True
     await bootstrap_admin(user)
-    await send_email(email, "welcome", {}, user["id"])
+    if user["role"] in ("coach", "academy_admin"):
+        await send_email(email, "coach_welcome", {"link": f"{APP_URL}/app/academy"}, user["id"])
+    else:
+        await send_email(email, "welcome", {"link": f"{APP_URL}/app/upload"}, user["id"])
     return await login_response(response, user["id"], request)
 
 

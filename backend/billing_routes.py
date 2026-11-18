@@ -4,33 +4,38 @@ from typing import Optional, List
 from fastapi import APIRouter, Request, HTTPException, Depends
 from pydantic import BaseModel, Field
 from pymongo import ReturnDocument
-from core import db, now, uid, log, audit, current_user, ADMIN, ledger, send_email, sanitize_error, get_settings
+from core import db, now, uid, log, audit, current_user, ADMIN, ledger, send_email, sanitize_error, get_settings, APP_URL
 
 router = APIRouter(prefix="/api")
 
-PLAN_DEFAULTS = dict(currency="INR", period_days=30, credits=5, videos_per_analysis=1, max_duration_s=30, max_file_mb=100,
+PLAN_DEFAULTS = dict(currency="INR", period_days=30, credits=5, videos_per_analysis=1, max_duration_s=25, max_file_mb=100,
                      report_level="detailed", pdf_export=True, history_access=True, comparisons=True, timeline=True, multi_angle=False,
                      ai_coach=True, training_planner=True, academy_features=False, active=True, billing="monthly", sort=10, description="")
 TIERS = [("starter", "Starter", 1, "basic"), ("pro", "Pro", 2, "detailed"), ("elite", "Elite", 3, "advanced")]
 GROUPS = {
-    "batting": ("Batting", ["batting"], [299, 499, 899], [3, 8, 20], "player"),
-    "bowling": ("Bowling", ["bowling"], [349, 599, 999], [3, 8, 20], "player"),
-    "combined": ("Batting + Bowling", ["batting", "bowling"], [549, 899, 1499], [6, 15, 35], "player"),
-    "academy": ("Coach & Academy", ["batting", "bowling"], [1999, 4999, 9999], [30, 100, 300], "coach"),
+    "batting": ("Batting", ["batting"], [799, 1299, 1499], [3, 6, 10], "player"),
+    "bowling": ("Bowling", ["bowling"], [999, 1399, 1799], [3, 5, 8], "player"),
+    "combined": ("Batting + Bowling", ["batting", "bowling"], [1399, 1899, 2199], [5, 10, 15], "player"),
+    "academy": ("Coach & Academy", ["batting", "bowling"], [1999, 2499, 3999], [15, 20, 30], "coach"),
 }
+MAX_VIDEO_S = 25
 SEED_PLANS = []
 for g, (gname, types, prices, credits, aud) in GROUPS.items():
     for i, (t, tname, vids, level) in enumerate(TIERS):
         SEED_PLANS.append({"slug": f"{g}-{t}", "name": f"{gname} {tname}", "product": g, "audience": aud, "tier": t, "price_inr": prices[i], "credits": credits[i],
                            "analysis_types": types, "report_level": level, "videos_per_analysis": vids if g != "batting" else min(vids, 2),
-                           "multi_angle": i > 0 and g != "batting", "max_duration_s": 300, "academy_features": g == "academy",
-                           "sort": list(GROUPS).index(g) * 10 + i + 1, "description": f"{credits[i]} {gname.lower()} analyses per month, {level} reports."})
+                           "multi_angle": i > 0 and g != "batting", "max_duration_s": MAX_VIDEO_S, "academy_features": g == "academy",
+                           "sort": list(GROUPS).index(g) * 10 + i + 1, "description": f"{credits[i]} {'batting or bowling' if len(types) > 1 else gname.lower()} analyses, {level} reports."})
 
 
 async def seed_plans():
     for p in SEED_PLANS:
         if not await db.plans.find_one({"slug": p["slug"]}):
-            await db.plans.insert_one({"id": uid(), **PLAN_DEFAULTS, **p, "created_at": now(), "placeholder_price": True})
+            await db.plans.insert_one({"id": uid(), **PLAN_DEFAULTS, **p, "created_at": now(), "placeholder_price": False})
+        # one-time: replace launch placeholder prices/credits with the owner's pricing (admin edits afterwards are kept)
+        await db.plans.update_one({"slug": p["slug"], "placeholder_price": True},
+                                  {"$set": {k: p[k] for k in ("price_inr", "credits", "max_duration_s", "description")} | {"placeholder_price": False}})
+    await db.plans.update_many({"max_duration_s": {"$gt": MAX_VIDEO_S}}, {"$set": {"max_duration_s": MAX_VIDEO_S}})
     await db.plans.update_many({"slug": {"$in": ["batting-monthly", "bowling-monthly", "combined-monthly"]}, "placeholder_price": True}, {"$set": {"active": False}})
 
 
@@ -60,7 +65,7 @@ class PlanIn(BaseModel):
     period_days: int = Field(ge=1, le=3660)
     credits: int = Field(ge=0)
     videos_per_analysis: int = Field(ge=1, le=3)
-    max_duration_s: int = Field(ge=5, le=300)
+    max_duration_s: int = Field(ge=5, le=MAX_VIDEO_S)
     max_file_mb: int = Field(ge=5, le=500)
     analysis_types: List[str]
     report_level: str = "detailed"
@@ -201,7 +206,7 @@ async def activate(payment, provider_payment_id, source):
         await db.coupons.update_one({"code": p["coupon"]}, {"$inc": {"uses": 1}})
     user = await db.users.find_one({"id": p["user_id"]})
     await award_commission(p, user)
-    await send_email(user["email"], "receipt", {"amount": f"₹{p['amount_inr']}", "plan": plan["name"], "payment_id": provider_payment_id}, user["id"])
+    await send_email(user["email"], "receipt", {"amount": f"₹{p['amount_inr']}", "plan": plan["name"], "payment_id": provider_payment_id, "link": f"{APP_URL}/app/upload"}, user["id"])
     await audit(p["user_id"], "subscription.activated", sub["id"], {"source": source})
     return True
 
@@ -262,7 +267,7 @@ async def webhook(request: Request):
                                                   {"$set": {"status": "failed", "failure": (ent.get("error_description") or "")[:200]}})
         if p:
             user = await db.users.find_one({"id": p["user_id"]})
-            await send_email(user["email"], "payment_failed", {"plan": p["plan_name"]}, user["id"])
+            await send_email(user["email"], "payment_failed", {"plan": p["plan_name"], "link": f"{APP_URL}/app/billing"}, user["id"])
     elif name in ("refund.processed", "refund.created"):
         rf = (evt.get("payload", {}).get("refund") or {}).get("entity") or {}
         await mark_refunded(rf.get("payment_id"), rf.get("id"), rf.get("amount"))

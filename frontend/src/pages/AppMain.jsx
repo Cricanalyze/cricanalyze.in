@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { MAX_VIDEO_S, videoDuration } from "@/components/Pricing";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { UploadCloud, Video, FileDown, RefreshCw, Trash2, AlertTriangle, History, Sparkles, MessageSquare, CheckCircle2 } from "lucide-react";
@@ -122,9 +123,13 @@ export const Upload = () => {
   const staff = isStaff(user);
   const maxVideos = staff ? 3 : ent?.videos_per_analysis || 1;
   const allowed = staff ? ["batting", "bowling"] : ent?.analysis_types || [];
-  const add = (files) => {
-    const f = [...files].filter((x) => x.type.startsWith("video/") || /\.(mp4|mov|webm)$/i.test(x.name));
-    if (!f.length) return toast.error("Please choose an MP4, MOV or WEBM video.");
+  const add = async (files) => {
+    const picked = [...files].filter((x) => x.type.startsWith("video/") || /\.(mp4|mov|webm)$/i.test(x.name));
+    if (!picked.length) return toast.error("Please choose an MP4, MOV or WEBM video.");
+    const durs = await Promise.all(picked.map(videoDuration));
+    const f = picked.filter((x, i) => !(durs[i] > MAX_VIDEO_S + 0.5));
+    if (f.length < picked.length) toast.error(`Videos must be ${MAX_VIDEO_S} seconds or shorter. Trim the clip to just the shot or delivery.`);
+    if (!f.length) return;
     const next = [...items, ...f.map((file, i) => ({ file, url: URL.createObjectURL(file), angle: ANGLES[(items.length + i) % 3][0], progress: 0 }))].slice(0, maxVideos);
     if (items.length + f.length > maxVideos) toast.info(`Your plan allows ${maxVideos} ${maxVideos === 1 ? "video" : "videos"} per analysis.`);
     setItems(next);
@@ -151,7 +156,7 @@ export const Upload = () => {
   if (!status) return <p className="text-slate-400">Loading…</p>;
   return (
     <div><Seo title="New analysis" path="/app/upload" noindex />
-      <PageHeader eyebrow="New analysis" title="Upload a cricket video" desc={`Up to ${staff ? 3 : maxVideos} ${(staff ? 3 : maxVideos) === 1 ? "video" : "videos"} of any length, ${ent?.max_file_mb || 100} MB max. MP4, MOV or WEBM. For long clips we find the main shot or delivery and analyse it frame by frame.`} />
+      <PageHeader eyebrow="New analysis" title="Upload a cricket video" desc={`Up to ${staff ? 3 : maxVideos} ${(staff ? 3 : maxVideos) === 1 ? "video" : "videos"}, each ${MAX_VIDEO_S} seconds or shorter, ${ent?.max_file_mb || 100} MB max. MP4, MOV or WEBM.`} />
       <ConsentGate status={status} reload={loadStatus} />
       {!staff && allowed.length === 0 ? <Empty title="No active plan" desc="Choose a plan to start analysing videos." action={<Button asChild><Link to="/app/billing">View plans</Link></Button>} testid="upload-no-plan" /> :
       <div className="space-y-6">
@@ -165,6 +170,7 @@ export const Upload = () => {
             className={`block border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors ${drag ? "border-[#10B981] bg-[#10B981]/5" : "border-white/15 hover:border-[#00B4D8]/50"}`} data-testid="dropzone">
             <UploadCloud className="mx-auto text-[#00B4D8] mb-3" size={36} /><p className="font-medium">Drag & drop video{maxVideos > 1 ? "s" : ""} here or click to browse</p>
             <p className="text-xs text-slate-500 mt-1">{items.length}/{maxVideos} selected</p>
+            <p className="text-xs text-amber-300 mt-1" data-testid="upload-duration-note">Each video must be {MAX_VIDEO_S} seconds or shorter.</p>
             <input type="file" accept="video/mp4,video/quicktime,video/webm" multiple={maxVideos > 1} className="hidden" onChange={(e) => { add(e.target.files); e.target.value = ""; }} data-testid="video-file-input" disabled={items.length >= maxVideos} />
           </label>
           {items.map((it, i) => <Card key={it.url} className="flex flex-col sm:flex-row gap-4" data-testid={`video-item-${i}`}>

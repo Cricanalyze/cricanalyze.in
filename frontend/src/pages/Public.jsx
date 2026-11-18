@@ -8,12 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { api, errMsg, inr, SITE } from "@/lib/api";
+import { api, errMsg, SITE } from "@/lib/api";
 import { Seo, Card, Badge } from "@/components/Common";
 import { Tilt, HeroBatter } from "@/components/Fx3D";
 import { SampleReport, Measures, FilmingGuide, AcademySection, Journey, Marquee3D, ExplodedReport } from "@/pages/HomeSections";
 import { useAuth } from "@/context/AuthContext";
 import { PostCard } from "@/pages/Blog";
+import { useOfferTag, OfferBadge, PriceBlock, MAX_VIDEO_S } from "@/components/Pricing";
 
 const ORG = { "@context": "https://schema.org", "@type": "Organization", name: "CricAnalyze", legalName: "Buddy Innovations and Technologies Private Limited", url: SITE, email: "noreply@cricanalyze.in" };
 const WEBSITE = { "@context": "https://schema.org", "@type": "WebSite", name: "CricAnalyze", url: SITE };
@@ -98,6 +99,7 @@ export const PlanGrid = ({ onSelect }) => {
   const { user } = useAuth();
   const coach = ["coach", "academy_admin"].includes(user?.role);
   const [prod, setProd] = useState(coach ? "academy" : "batting");
+  const offer = useOfferTag();
   useEffect(() => { api.get("/plans").then(({ data }) => setPlans(data)).catch(() => {}); }, []);
   const shown = plans.filter((p) => (p.product || "batting") === prod);
   return (
@@ -107,12 +109,12 @@ export const PlanGrid = ({ onSelect }) => {
       <div className="grid md:grid-cols-3 gap-5">
       {shown.map((p, i) => (
         <Tilt key={p.id} max={6} style={{ transitionDelay: `${i * 120}ms` }} className={`plan-pop rounded-2xl p-7 border backdrop-blur-xl ${i === 1 ? "border-[#10B981]/50 bg-[#10B981]/10" : "border-white/10 bg-[#0B132B]/80"}`} data-testid={`plan-card-${p.slug}`}>
-          <div className="eyebrow">{p.tier || p.billing}</div>
+          <div className="flex items-center justify-between gap-2"><div className="eyebrow">{p.tier || p.billing}</div><OfferBadge tag={offer} testid={`offer-tag-${p.slug}`} /></div>
           <h3 className="text-2xl font-bold mt-2">{p.name}</h3>
-          <div className="text-4xl font-display font-extrabold mt-4">{inr(p.price_inr)}<span className="text-sm text-slate-400 font-normal"> / {p.period_days} days</span></div>
+          <PriceBlock price={p.price_inr} period={p.period_days} slug={p.slug} />
           <p className="text-sm text-slate-400 mt-2 min-h-[40px]">{p.description}</p>
           <ul className="mt-5 space-y-2 text-sm">
-            {[`${p.credits} analysis credits`, `${p.analysis_types.join(" + ")} analysis`, `${p.videos_per_analysis} ${p.videos_per_analysis === 1 ? "video" : "videos"} per analysis, any length`, `${p.report_level} report`,
+            {[`${p.credits} analysis credits`, `${p.analysis_types.join(" + ")} analysis`, `${p.videos_per_analysis} ${p.videos_per_analysis === 1 ? "video" : "videos"} per analysis, up to ${MAX_VIDEO_S} sec each`, `${p.report_level} report`,
               p.academy_features && "Academy workspace, join codes & leaderboard", p.multi_angle && "Multi-angle input", p.pdf_export && "PDF export + emailed reports", p.comparisons && "Before/after comparisons", p.ai_coach && "AI coach", p.training_planner && "Training planner"].filter(Boolean)
               .map((x) => <li key={x} className="flex gap-2"><CheckCircle2 size={16} className="text-[#10B981] shrink-0 mt-0.5" /><span className="capitalize-first">{x}</span></li>)}
           </ul>
@@ -135,7 +137,7 @@ function MessageIcon(p) { return <Brain {...p} />; }
 
 export const HowItWorks = () => (<><Seo title="How it works" path="/how-it-works" description="Record, upload, get an AI-assisted report and practise with linked drills." />
   <Section><H2 h1 eyebrow="How it works" title="From clip to practice plan in four steps" />
-    <ol className="grid md:grid-cols-4 gap-5">{[["Record", "Film side-on or front-on, in good light, whole body in frame, 30fps or higher. Any length works — we find the main shot or delivery."], ["Upload", "Choose batting or bowling, label the camera angle and confirm consent. We check the file is a real, readable video."],
+    <ol className="grid md:grid-cols-4 gap-5">{[["Record", "Film side-on or front-on, in good light, whole body in frame, 30fps or higher. Keep each clip 25 seconds or shorter — just the shot or delivery."], ["Upload", "Choose batting or bowling, label the camera angle and confirm consent. We check the file is a real, readable video."],
       ["Analyse", "We sample frames and an AI vision model describes what it can see, with timestamps and confidence. Usually takes 1–3 minutes."], ["Practise", "Follow the linked drills, generate a training plan, and compare your next video with this one."]]
       .map(([t, d], i) => <li key={t} className="glass rounded-xl p-6 reveal-3d"><div className="font-mono text-[#00B4D8] text-sm">0{i + 1}</div><h3 className="text-xl font-bold mt-2 mb-2">{t}</h3><p className="text-sm text-slate-400">{d}</p></li>)}</ol>
     <Card className="mt-10"><h3 className="font-semibold mb-2">What the AI can and can't do</h3><p className="text-sm text-slate-400 leading-relaxed">Body tracking measures 2D joint angles, weight transfer, head position and foot landings on the exact frames shown in your report, and an AI vision model adds coaching notes. It does not measure bat speed, ball speed or forces, and it is not calibrated 3D biomechanics. Anything the camera can't see clearly is marked unavailable. It is not medical advice.</p></Card>
@@ -146,7 +148,7 @@ export const Pricing = () => (<><Seo title="Pricing" path="/pricing" description
 
 export const About = () => (<><Seo title="About" path="/about" description="CricAnalyze is built by Buddy Innovations and Technologies Private Limited, founded by Adithya AG and Chandru H." /><AboutPage /></>);
 
-const FAQS = [["What videos work best?", "Clips of any length filmed side-on or front-on, whole body visible, steady camera, good light, 480p or higher. For long clips we find the main shot or delivery and analyse it frame by frame. MP4, MOV and WEBM are supported."],
+const FAQS = [["What videos work best?", "Clips of 25 seconds or shorter, filmed side-on or front-on, whole body visible, steady camera, good light, 480p or higher. We analyse the shot or delivery frame by frame. MP4, MOV and WEBM are supported."],
   ["Is the analysis done by a real AI model?", "Yes. Frames from your video are analysed by a hosted AI vision model. If the AI service is unavailable the job fails clearly and your credit is refunded — we never show made-up results."],
   ["Does it measure bat speed or bowling speed?", "No. Speeds, forces and exact angles need calibrated equipment. Reports show only visual observations with confidence levels."],
   ["Who can see my videos?", "Only you, unless you are in an academy and explicitly turn on report sharing. Videos are stored privately and served through short-lived links."],

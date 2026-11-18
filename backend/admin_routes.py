@@ -157,6 +157,7 @@ class SettingsIn(BaseModel):
     limits: dict = {}
     keys: dict = {}
     commission: dict = {}
+    offer: dict = {}
     confirm: bool = False
 
 
@@ -178,6 +179,8 @@ async def save_settings(body: SettingsIn, request: Request, a=Depends(ADMIN)):
         upd["commission.mode"] = body.commission["mode"]
     if "value" in body.commission:
         upd["commission.value"] = max(0.0, float(body.commission["value"]))
+    if "tag" in body.offer:
+        upd["offer.tag"] = str(body.offer["tag"] or "").strip()[:40]
     if not upd:
         return await get_settings()
     await db.settings.update_one({"_id": "app"}, {"$set": upd}, upsert=True)
@@ -259,7 +262,7 @@ async def ticket_update(tid: str, body: TicketIn, a=Depends(ADMIN)):
 async def public_config():
     s = await get_settings()
     return {"flags": s["flags"], "ga_id": os.environ.get("GA_MEASUREMENT_ID"), "gsc": os.environ.get("GSC_VERIFICATION"),
-            "payments_enabled": bool(os.environ.get("RAZORPAY_KEY_ID"))}
+            "payments_enabled": bool(os.environ.get("RAZORPAY_KEY_ID")), "offer_tag": s["offer"]["tag"]}
 
 
 @router.get("/health")

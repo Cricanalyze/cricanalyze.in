@@ -83,6 +83,7 @@ DEFAULT_SETTINGS = {
                "est_cost_per_analysis_inr": 6, "monthly_cost_alert_inr": 5000, "retention_days": 365},
     "keys": {"anthropic_mode": "rotate", "ultralytics_mode": "rotate"},
     "commission": {"mode": "percent_every", "value": 10},
+    "offer": {"tag": ""},
 }
 
 
@@ -161,46 +162,97 @@ def public_user(u):
 
 
 # ---------- email ----------
+CODE_NOTE = "Never share this code with anyone. CricAnalyze staff will never ask for your code or password."
+ACCOUNT_NOTE = "You're receiving this email because you have a CricAnalyze account."
+
+
+def T(subject, title, paras, code=False, cta=None, note=None):
+    return {"subject": subject, "title": title, "paras": paras, "code": code, "cta": cta, "note": note or (CODE_NOTE if code else ACCOUNT_NOTE)}
+
+
 EMAIL_TEMPLATES = {
-    "verify_email": ("Your CricAnalyze verification code", "Verify your email",
-                     "Use this code to verify your email address. It expires in 5 minutes.", True),
-    "login_otp": ("Your CricAnalyze sign-in code", "Sign-in code", "Use this code to sign in. It expires in 5 minutes.", True),
-    "reset_password": ("Reset your CricAnalyze password", "Password reset code",
-                       "Use this code to reset your password. It expires in 5 minutes. If you didn't ask for this, ignore this email.", True),
-    "step_up": ("Confirm a sensitive action", "Security confirmation", "Use this code to confirm a sensitive account action.", True),
-    "change_email": ("Confirm your new email", "Confirm new email", "Use this code to confirm this new email for your CricAnalyze account.", True),
-    "guardian_consent": ("Guardian consent request — CricAnalyze", "Guardian consent",
-                         "{player} has asked you to approve video analysis on CricAnalyze. Share this code with them only if you consent.", True),
-    "welcome": ("Welcome to CricAnalyze", "Welcome aboard", "Your email is verified. Upload a batting or bowling video to get your first report.", False),
-    "password_changed": ("Your CricAnalyze password was changed", "Password changed",
-                         "Your password was just changed and other sessions were signed out. If this wasn't you, reset your password immediately.", False),
-    "receipt": ("Payment receipt — CricAnalyze", "Payment received", "Thank you. We received {amount} for {plan}. Payment ID: {payment_id}.", False),
-    "payment_failed": ("Payment failed — CricAnalyze", "Payment failed", "Your payment for {plan} did not go through. No subscription was activated. You can try again.", False),
-    "report_ready": ("Your analysis report is ready", "Report ready", "Your {kind} analysis is complete. Open CricAnalyze to view it.", False),
-    "academy_invite": ("You're invited to {academy} on CricAnalyze", "Academy invitation",
-                       "{academy} invited you to join as a {role}. Open this link to accept: {link}", False),
-    "report_delivery": ("Your CricAnalyze {kind} report", "Your report is ready",
-                        "Your {kind} analysis report is ready. Open it in CricAnalyze: {link} — Shareable link (anyone with it can view): {share}. {pdf_note}", False),
-    "join_request": ("New join request — {academy}", "Join request", "{player} asked to join {academy}. Review it in CricAnalyze: {link}", False),
-    "join_decision": ("Your request to join {academy}", "Academy request {decision}", "Your request to join {academy} was {decision}.", False),
-    "maintenance": ("Scheduled maintenance — CricAnalyze", "Scheduled maintenance",
-                    "CricAnalyze will be under maintenance from {start} to {end} (IST). During this time the website and app will be unavailable. {message}", False),
-    "notice": ("Important account notice — CricAnalyze", "Account notice", "{message}", False),
-    "test": ("CricAnalyze SMTP test", "SMTP test", "This is a test email from the CricAnalyze admin console.", False),
+    "verify_email": T("Your CricAnalyze verification code", "Verify your email",
+                      ["Welcome to CricAnalyze! Enter the code below to verify your email address and finish creating your account.", "The code expires in 5 minutes."], code=True),
+    "login_otp": T("Your CricAnalyze sign-in code", "Your sign-in code",
+                   ["Someone (hopefully you) is signing in to your CricAnalyze account. Enter the code below to continue.", "The code expires in 5 minutes. If this wasn't you, change your password."], code=True),
+    "reset_password": T("Reset your CricAnalyze password", "Reset your password",
+                        ["We received a request to reset your CricAnalyze password. Enter the code below to choose a new one.",
+                         "The code expires in 5 minutes. If you didn't ask for this, you can safely ignore this email."], code=True),
+    "step_up": T("Confirm a sensitive action — CricAnalyze", "Confirm it's you",
+                 ["You're making a sensitive change to your account. Enter the code below to confirm it."], code=True),
+    "change_email": T("Confirm your new email — CricAnalyze", "Confirm your new email",
+                      ["Enter the code below to confirm this as the new email address for your CricAnalyze account."], code=True),
+    "guardian_consent": T("Guardian consent request — CricAnalyze", "Guardian consent",
+                          ["{player} has asked for your permission to use CricAnalyze video analysis.",
+                           "If you agree, share the code below with them only. If you don't, simply ignore this email."], code=True,
+                          note="Only share this code if you consent. CricAnalyze staff will never ask for it."),
+    "welcome": T("Welcome to CricAnalyze", "Welcome aboard!",
+                 ["Your email is verified and your account is ready.",
+                  "Here's how to get started: 1) Choose a plan. 2) Watch the short filming demo. 3) Upload a batting or bowling clip (25 seconds or shorter). "
+                  "Within minutes you'll get scores, phase-by-phase feedback and drills."], cta=("Upload your first video", "link")),
+    "coach_welcome": T("Welcome to CricAnalyze, Coach", "Welcome, Coach!",
+                       ["Your coach account is ready — you can start right away.",
+                        "1) Create your academy from the Academy page.",
+                        "2) Share your academy's join code with your players, or invite them by email.",
+                        "3) Accept their join requests and assign players to coaches.",
+                        "4) When players turn on sharing, you'll see their reports and can add your own feedback, attendance and leaderboards."],
+                       cta=("Create your academy", "link")),
+    "password_changed": T("Your CricAnalyze password was changed", "Password changed",
+                          ["Your password was just changed and all other sessions were signed out.",
+                           "If this wasn't you, reset your password immediately and contact us."], cta=("Go to CricAnalyze", "link"),
+                          note="This is a security alert sent to protect your account."),
+    "receipt": T("Payment receipt — CricAnalyze", "Payment received",
+                 ["Thank you! We received {amount} for {plan}.", "Payment ID: {payment_id}", "Your credits are now active. Keep this email as your receipt."],
+                 cta=("Start an analysis", "link"), note="Keep this receipt for your records. Refunds follow our Refund Policy at cricanalyze.in/refund-policy."),
+    "payment_failed": T("Payment failed — CricAnalyze", "Payment didn't go through",
+                        ["Your payment for {plan} did not go through, so no plan was activated and you weren't charged for it.",
+                         "You can try again with another card, UPI or net banking."], cta=("Try again", "link"),
+                        note="If money was deducted, it is usually reversed by your bank within 5–7 working days."),
+    "report_ready": T("Your analysis report is ready", "Report ready", ["Your {kind} analysis is complete."], cta=("Open report", "link")),
+    "academy_invite": T("You're invited to {academy} on CricAnalyze", "Academy invitation",
+                        ["{academy} has invited you to join as a {role} on CricAnalyze.", "Accept the invitation to connect with your academy."],
+                        cta=("Accept invitation", "link"), note="If you weren't expecting this invitation, you can ignore this email."),
+    "report_delivery": T("Your CricAnalyze {kind} report", "Your report is ready",
+                         ["Your {kind} analysis is complete. {pdf_note}",
+                          "Your report includes scores, phase-by-phase feedback and drills. Please go through the website for the in-detail analysis.",
+                          "Shareable link (anyone with this link can view the report): {share}"],
+                         cta=("Open full report", "link"),
+                         note="Keep your shareable link private if you don't want others to see your report. You can turn it off anytime from the report page."),
+    "join_request": T("New join request — {academy}", "New join request",
+                      ["{player} has asked to join {academy}.", "Review the request and accept or decline it."], cta=("Review request", "link"),
+                      note="You're receiving this because you manage this academy on CricAnalyze."),
+    "join_decision": T("Your request to join {academy}", "Request {decision}", ["Your request to join {academy} was {decision}."], cta=("Open CricAnalyze", "link")),
+    "maintenance": T("Scheduled maintenance — CricAnalyze", "Scheduled maintenance",
+                     ["CricAnalyze will be under maintenance from {start} to {end} (IST).",
+                      "During this time the website and app will be unavailable. Any analysis already running will finish once we're back.", "{message}"],
+                     note="We're sorry for the inconvenience. This is a service notice sent to all registered users."),
+    "abuse_report": T("New abuse report — CricAnalyze", "New abuse report",
+                      ["{reporter} reported {target} ({academy}).", "Reason: {reason}", "{details}"], cta=("Review in admin", "link"),
+                      note="You're receiving this because you are a CricAnalyze administrator."),
+    "notice": T("Important account notice — CricAnalyze", "Account notice", ["{message}"], cta=("Go to CricAnalyze", "link"),
+                note="This is an important notice about your account."),
+    "test": T("CricAnalyze SMTP test", "SMTP test", ["This is a test email from the CricAnalyze admin console. Email delivery is working."],
+              note="Sent from the CricAnalyze admin console."),
 }
 
 
 def render_email(template: str, ctx: dict):
-    subject, title, body, has_code = EMAIL_TEMPLATES[template]
-    subject = subject.format(**ctx) if "{" in subject else subject
-    body = body.format(**ctx)
-    code = ctx.get("code") if has_code else None
-    text = f"{title}\n\n{body}\n\n" + (f"Code: {code}\n\n" if code else "") + "— CricAnalyze, Buddy Innovations and Technologies Private Limited\nhttps://cricanalyze.in"
-    code_html = f'<div style="font:700 32px monospace;letter-spacing:8px;color:#0B132B;background:#E6FAF4;padding:16px;text-align:center;border-radius:8px">{code}</div>' if code else ""
+    t = EMAIL_TEMPLATES[template]
+    ctx = {"link": f"{APP_URL}/app", **ctx}
+    subject, title = t["subject"].format(**ctx), t["title"].format(**ctx)
+    paras = [p for p in (x.format(**ctx).strip() for x in t["paras"]) if p]
+    code = ctx.get("code") if t["code"] else None
+    cta = (t["cta"][0], ctx.get(t["cta"][1])) if t["cta"] and ctx.get(t["cta"][1]) else None
+    text = f"{title}\n\n" + "\n\n".join(paras) + "\n\n" + (f"Code: {code}\n\n" if code else "") + (f"{cta[0]}: {cta[1]}\n\n" if cta else "") \
+        + f"{t['note']}\n\n— CricAnalyze, Buddy Innovations and Technologies Private Limited\nhttps://cricanalyze.in"
+    body_html = "".join(f'<p style="line-height:1.6;margin:0 0 12px">{htmllib.escape(p)}</p>' for p in paras)
+    code_html = f'<div style="font:700 32px monospace;letter-spacing:8px;color:#0B132B;background:#E6FAF4;padding:16px;text-align:center;border-radius:8px;margin-top:8px">{code}</div>' if code else ""
+    cta_html = (f'<a href="{htmllib.escape(cta[1])}" style="display:inline-block;margin-top:8px;background:#10B981;color:#0B132B;font-weight:700;padding:12px 22px;'
+                f'border-radius:999px;text-decoration:none">{htmllib.escape(cta[0])}</a>') if cta else ""
     html = f"""<div style="background:#f4f7fb;padding:24px;font-family:Arial,sans-serif"><div style="max-width:520px;margin:auto;background:#fff;border-radius:12px;overflow:hidden">
 <div style="background:#0B132B;padding:18px 24px;color:#fff;font-weight:800;font-size:20px">Cric<span style="color:#10B981">Analyze</span></div>
-<div style="padding:24px;color:#1C2541"><h2 style="margin:0 0 12px">{htmllib.escape(title)}</h2><p style="line-height:1.6">{htmllib.escape(body)}</p>{code_html}</div>
-<div style="padding:16px 24px;font-size:12px;color:#64748b;border-top:1px solid #e2e8f0">Buddy Innovations and Technologies Private Limited · cricanalyze.in<br>Never share this code. CricAnalyze will never ask for your password.</div></div></div>"""
+<div style="padding:24px;color:#1C2541"><h2 style="margin:0 0 12px">{htmllib.escape(title)}</h2>{body_html}{code_html}{cta_html}</div>
+<div style="padding:16px 24px;font-size:12px;color:#64748b;border-top:1px solid #e2e8f0">{htmllib.escape(t['note'])}<br>Buddy Innovations and Technologies Private Limited · cricanalyze.in</div></div></div>"""
     return subject, html, text
 
 

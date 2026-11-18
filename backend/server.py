@@ -4,10 +4,10 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.middleware.cors import CORSMiddleware
 from core import db, log, init_storage, sanitize_error
-import auth_routes, analysis_routes, billing_routes, coach_routes, academy_routes, blog_routes, admin_routes, admin_extra_routes, key_pool, maintenance
+import auth_routes, analysis_routes, billing_routes, coach_routes, academy_routes, blog_routes, admin_routes, admin_extra_routes, key_pool, maintenance, abuse_routes
 
 app = FastAPI(title="CricAnalyze API", version="1.0", docs_url="/api/docs", openapi_url="/api/openapi.json")
-for m in (auth_routes, analysis_routes, billing_routes, coach_routes, academy_routes, blog_routes, admin_routes, admin_extra_routes, maintenance):
+for m in (auth_routes, analysis_routes, billing_routes, coach_routes, academy_routes, blog_routes, admin_routes, admin_extra_routes, maintenance, abuse_routes):
     app.include_router(m.router)
 
 CSRF_EXEMPT = {"/api/billing/webhook", "/api/auth/login", "/api/auth/signup", "/api/auth/verify-email", "/api/auth/login/otp/verify",

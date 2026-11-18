@@ -12,6 +12,8 @@ import { api, errMsg, fmtDate, inr, download, media } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { PageHeader, Empty, Card, Badge, statusTone, Seo } from "@/components/Common";
 import { PlanGrid } from "@/pages/Public";
+import { useOfferTag, OfferBadge, mrp, MAX_VIDEO_S } from "@/components/Pricing";
+import { ReportCoachButton } from "@/components/AbuseReports";
 import { Otp } from "@/pages/Auth";
 import { JoinAcademy, AcademyCodeCard, JoinRequests, Leaderboard, NicknameEdit } from "@/components/AcademyExtras";
 
@@ -62,7 +64,7 @@ const AcademyView = ({ aid, membership, reload }) => {
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (role !== "player") api.get(`/academies/${aid}/attendance`, { params: { date } }).then(({ data }) => setAtt(Object.fromEntries(data.map((x) => [x.player_id, x.status])))).catch(() => {}); }, [aid, date, role]);
   if (role === "player") return <div className="space-y-6"><Card data-testid="player-consent-card"><h3 className="font-semibold">{membership.academy?.name}</h3><p className="text-sm text-slate-400 mt-1 mb-4">Choose whether your academy admins and assigned coaches can view your analysis reports and videos.</p>
-    <label className="flex items-center gap-3"><Switch checked={!!membership.share_reports} onCheckedChange={async (v) => { try { await api.patch(`/academies/${aid}/consent`, { share_reports: v }); reload(); toast.success(v ? "Sharing enabled." : "Sharing turned off."); } catch (e) { toast.error(e?.response?.data?.detail === "guardian_consent_required" ? "Guardian consent is required first (see New analysis)." : errMsg(e)); } }} data-testid="share-reports-switch" />Share my reports with this academy</label></Card><Leaderboard aid={aid} /></div>;
+    <label className="flex items-center gap-3"><Switch checked={!!membership.share_reports} onCheckedChange={async (v) => { try { await api.patch(`/academies/${aid}/consent`, { share_reports: v }); reload(); toast.success(v ? "Sharing enabled." : "Sharing turned off."); } catch (e) { toast.error(e?.response?.data?.detail === "guardian_consent_required" ? "Guardian consent is required first (see New analysis)." : errMsg(e)); } }} data-testid="share-reports-switch" />Share my reports with this academy</label><div className="mt-4 border-t border-white/5 pt-3 flex justify-end"><ReportCoachButton aid={aid} /></div></Card><Leaderboard aid={aid} /></div>;
   if (!d) return <p className="text-slate-400">Loading…</p>;
   const players = d.members.filter((m) => m.role === "player");
   const coaches = d.members.filter((m) => m.role !== "player");
@@ -110,6 +112,7 @@ export const Billing = () => {
   const [planId, setPlanId] = useState(sp.get("plan") || "");
   const [coupon, setCoupon] = useState("");
   const [quote, setQuote] = useState(null);
+  const offer = useOfferTag();
   const [subs, setSubs] = useState([]);
   const [pays, setPays] = useState([]);
   const [ledger, setLedger] = useState([]);
@@ -134,8 +137,9 @@ export const Billing = () => {
   return (
     <div><Seo title="Billing" path="/app/billing" noindex />
       <PageHeader eyebrow="Billing" title="Plans & billing" desc="Plans activate only after Razorpay confirms the payment on our server." />
-      {plan ? <Card className="mb-8 max-w-xl border-[#10B981]/30" data-testid="checkout-card"><h3 className="font-semibold">{plan.name} — {inr(quote?.price_inr ?? plan.price_inr)}{quote?.coupon && <span className="text-sm text-slate-400 line-through ml-2">{inr(plan.price_inr)}</span>}</h3>
+      {plan ? <Card className="mb-8 max-w-xl border-[#10B981]/30" data-testid="checkout-card"><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold">{plan.name} — {inr(quote?.price_inr ?? plan.price_inr)}<span className="text-sm text-slate-500 line-through ml-2" data-testid="checkout-mrp">{inr(quote?.coupon ? plan.price_inr : mrp(plan.price_inr))}</span></h3><OfferBadge tag={offer} testid="checkout-offer-tag" /></div>
         <p className="text-sm text-slate-400">{plan.credits} credits · {plan.period_days} days</p>
+        <p className="text-xs text-amber-300 mt-1">Each video must be {MAX_VIDEO_S} seconds or shorter.</p>
         <div className="flex gap-2 mt-4"><Input placeholder="Coupon code" value={coupon} onChange={(e) => setCoupon(e.target.value.toUpperCase())} data-testid="coupon-input" /><Button variant="secondary" onClick={checkCoupon} disabled={!coupon} data-testid="coupon-apply-btn">Apply</Button></div>
         <div className="flex gap-2 mt-4"><Button onClick={pay} disabled={busy} className="bg-[#10B981] hover:bg-[#059669] text-[#0B132B]" data-testid="pay-btn">{busy ? "Processing…" : "Pay with Razorpay"}</Button><Button variant="ghost" onClick={() => setPlanId("")}>Change plan</Button></div></Card> :
         <div className="mb-10"><PlanGrid onSelect={setPlanId} /></div>}

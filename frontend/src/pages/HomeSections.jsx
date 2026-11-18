@@ -108,7 +108,7 @@ export const AcademySection = () => (
   </Wrap>
 );
 
-const STEPS = [["01", "Record", "Prop your phone side-on at hip height and film a few balls. Any length — we find the shot or delivery.", "#00B4D8"],
+const STEPS = [["01", "Record", "Prop your phone side-on at hip height and film one shot or delivery — 25 seconds or shorter.", "#00B4D8"],
   ["02", "Upload", "Pick batting or bowling, label the camera angle and confirm consent. Takes seconds.", "#10B981"],
   ["03", "Analyse", "Body tracking measures every key frame; the AI coach explains it in plain words.", "#F59E0B"],
   ["04", "Practise", "Get drills and a weekly plan, then compare your next video to see real progress.", "#5fd7ef"]];

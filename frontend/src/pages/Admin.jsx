@@ -11,6 +11,8 @@ import { api, errMsg, fmtDate, inr } from "@/lib/api";
 import { PageHeader, Card, Badge, statusTone, Seo } from "@/components/Common";
 import { ApiKeys, Commissions } from "@/components/AdminExtras";
 import { MaintenanceAdmin } from "@/components/Maintenance";
+import { AbuseReportsAdmin } from "@/components/AbuseReports";
+import { resetOfferTag } from "@/components/Pricing";
 
 const useLoad = (path, params) => {
   const [d, setD] = useState(null);
@@ -56,7 +58,7 @@ const Users = () => {
   </div>);
 };
 
-const PLAN_BLANK = { name: "", slug: "", product: "batting", billing: "monthly", price_inr: 499, currency: "INR", period_days: 30, credits: 5, videos_per_analysis: 1, max_duration_s: 30, max_file_mb: 100, analysis_types: ["batting"],
+const PLAN_BLANK = { name: "", slug: "", product: "batting", billing: "monthly", price_inr: 499, currency: "INR", period_days: 30, credits: 5, videos_per_analysis: 1, max_duration_s: 25, max_file_mb: 100, analysis_types: ["batting"],
   report_level: "detailed", pdf_export: true, history_access: true, comparisons: true, timeline: true, multi_angle: false, ai_coach: true, training_planner: true, academy_features: false, active: true, sort: 10, description: "", valid_until: null };
 const Plans = () => {
   const [d, load] = useLoad("/admin/plans");
@@ -127,8 +129,10 @@ const SettingsTab = () => {
   const [s, setS] = useState(null);
   useEffect(() => { if (d) setS(d); }, [d]);
   if (!s) return "Loading…";
-  const save = async () => { if (!window.confirm("Apply these platform settings?")) return; try { await api.put("/admin/settings", { ...s, confirm: true }); toast.success("Settings saved."); setD(); } catch (e) { toast.error(errMsg(e)); } };
-  return (<div className="grid lg:grid-cols-2 gap-6"><Card><h3 className="font-semibold mb-3">Feature flags</h3>{Object.entries(s.flags).map(([k, v]) => <label key={k} className="flex justify-between py-2 text-sm">{k.replace(/_/g, " ")}<Switch checked={v} onCheckedChange={(x) => setS({ ...s, flags: { ...s.flags, [k]: x } })} data-testid={`flag-${k}`} /></label>)}</Card>
+  const save = async () => { if (!window.confirm("Apply these platform settings?")) return; try { await api.put("/admin/settings", { ...s, confirm: true }); toast.success("Settings saved."); resetOfferTag(); setD(); } catch (e) { toast.error(errMsg(e)); } };
+  return (<div className="grid lg:grid-cols-2 gap-6"><Card className="lg:col-span-2"><h3 className="font-semibold mb-1">Price offer tag</h3><p className="text-xs text-slate-400 mb-3">Shown on every plan next to the price, e.g. "New Year Offer" or "Diwali Offer". Leave empty to hide. Prices always show a struck-out 1.5× price.</p>
+      <Input className="max-w-sm" maxLength={40} placeholder="e.g. Diwali Offer" value={s.offer?.tag || ""} onChange={(e) => setS({ ...s, offer: { ...s.offer, tag: e.target.value } })} data-testid="offer-tag-input" /></Card>
+    <Card><h3 className="font-semibold mb-3">Feature flags</h3>{Object.entries(s.flags).map(([k, v]) => <label key={k} className="flex justify-between py-2 text-sm">{k.replace(/_/g, " ")}<Switch checked={v} onCheckedChange={(x) => setS({ ...s, flags: { ...s.flags, [k]: x } })} data-testid={`flag-${k}`} /></label>)}</Card>
     <Card><h3 className="font-semibold mb-3">Limits & cost controls</h3>{Object.entries(s.limits).map(([k, v]) => <label key={k} className="flex justify-between items-center py-1.5 text-sm gap-3">{k.replace(/_/g, " ")}<Input type="number" className="w-28 h-8" value={v} onChange={(e) => setS({ ...s, limits: { ...s.limits, [k]: +e.target.value } })} data-testid={`limit-${k}`} /></label>)}</Card>
     <Button onClick={save} className="lg:col-span-2 justify-self-start" data-testid="settings-apply-btn">Save settings</Button></div>);
 };
@@ -158,7 +162,7 @@ const Audit = () => { const [d] = useLoad("/admin/audit"); return d ? <T testid=
 const Academies = () => { const [d] = useLoad("/admin/academies"); return d ? <T head={["Name", "City", "Members", "Created"]} rows={d.map((a) => [a.name, a.city, a.members, fmtDate(a.created_at)])} /> : "Loading…"; };
 
 const TABS = [["overview", "Overview", Overview], ["users", "Users & roles", Users], ["commissions", "Commissions", Commissions], ["apikeys", "API keys", ApiKeys], ["plans", "Plans", Plans], ["coupons", "Coupons", Coupons], ["payments", "Payments & credits", Payments], ["jobs", "Analysis jobs", Jobs],
-  ["integrations", "Integrations & email", Integrations], ["settings", "Flags & limits", SettingsTab], ["seo", "SEO", SeoTab], ["academies", "Academies", Academies], ["support", "Support", Support], ["maintenance", "Maintenance", MaintenanceAdmin], ["audit", "Audit log", Audit]];
+  ["integrations", "Integrations & email", Integrations], ["settings", "Flags & limits", SettingsTab], ["seo", "SEO", SeoTab], ["academies", "Academies", Academies], ["support", "Support", Support], ["abuse", "Abuse reports", AbuseReportsAdmin], ["maintenance", "Maintenance", MaintenanceAdmin], ["audit", "Audit log", Audit]];
 
 export default function Admin() {
   return (<div><Seo title="Admin" path="/admin" noindex /><PageHeader eyebrow="Admin control center" title="Platform administration" desc="Sensitive changes require confirmation and are written to the audit log." />
