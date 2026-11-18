@@ -17,6 +17,7 @@ import { PageHeader, Empty, Card, Badge, statusTone, Seo } from "@/components/Co
 import { ReportBody } from "@/components/ReportBody";
 import { ShareButton } from "@/components/ShareButton";
 import { EmailReport } from "@/components/EmailReport";
+import { ProgressChart } from "@/components/ProgressChart";
 
 export const Dashboard = () => {
   const { user, ent } = useAuth();
@@ -32,6 +33,7 @@ export const Dashboard = () => {
           .map(([l, v, t]) => <Card key={l}><div className="text-xs text-slate-400">{l}</div><div className="text-3xl font-display font-bold mt-1" data-testid={t}>{v}</div></Card>)}
       </div>
       {!isStaff(user) && !ent?.subscriptions && <Card className="mb-8 border-[#10B981]/30" data-testid="dash-no-plan"><div className="flex flex-col sm:flex-row justify-between gap-3 sm:items-center"><div><h3 className="font-semibold">No active plan</h3><p className="text-sm text-slate-400">Choose a batting, bowling or all-rounder plan to start analysing videos.</p></div><Button asChild><Link to="/app/billing">View plans</Link></Button></div></Card>}
+      {done.length > 0 && <ProgressChart defaultType={done.filter((j) => j.analysis_type === "bowling").length > done.filter((j) => j.analysis_type === "batting").length ? "bowling" : "batting"} />}
       <h2 className="text-lg font-semibold mb-4">Recent analyses</h2>
       {jobs === null ? <p className="text-slate-400">Loading…</p> : jobs.length === 0 ? <Empty icon={Video} title="No analyses yet" desc="Upload your first batting or bowling video. Your first report becomes your baseline." action={<Button asChild><Link to="/app/upload">Upload a video</Link></Button>} /> :
         <JobList jobs={jobs.slice(0, 6)} />}

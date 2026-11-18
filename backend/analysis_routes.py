@@ -366,9 +366,13 @@ async def attach_view(u, job, rep):
     owner = await db.users.find_one({"id": job["user_id"]}, {"full_name": 1})
     want = job.get("compare_previous", job.get("report_level") != "basic")
     allowed = u["role"] in STAFF or (await entitlements(job["user_id"]))["comparisons"]
-    hist = await history_for(rep) if want and allowed else None
+    hist = None
+    if want and allowed:
+        # compare on the stored (unfiltered) metrics; basic report levels hide values in `rep`
+        raw = await db.analysis_reports.find_one({"job_id": job["id"]}, {"_id": 0, "user_id": 1, "analysis_type": 1, "created_at": 1, "biomech": 1})
+        hist = await history_for(raw or rep)
     rep["view"] = report_view.build(rep, (owner or {}).get("full_name"), hist, u["role"] in STAFF)
-    if want and allowed and not hist:
+    if job.get("compare_previous") is True and allowed and not hist:
         rep["view"]["compare_note"] = (f"You asked to compare with your last {job['analysis_type']} report, but there's no earlier {job['analysis_type']} report from the same "
                                        "camera angle yet. This report is now your baseline — the next one will be compared with it.")
     rep["view"]["header"]["date"] = report_view.ist(job["created_at"])

@@ -18,6 +18,14 @@ EXPECTED = {
 TIERS = ["starter", "pro", "elite"]
 created_emails, created_videos, created_reports = [], [], []
 STATE = {}
+_SESS = {}
+
+
+def L(cred):
+    """cached login per account (loginemail rate limit is 15/15min)"""
+    if cred[0] not in _SESS:
+        _SESS[cred[0]] = login(*cred)
+    return _SESS[cred[0]]
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -56,7 +64,7 @@ def test_academy_combined_types():
 
 
 def test_admin_plan_rejects_over_25():
-    a = login(*QA_ADMIN)
+    a = L(QA_ADMIN)
     plans = a.get("/admin/plans").json()
     p = [x for x in plans if x["slug"] == "batting-starter"][0]
     body = {k: p[k] for k in ("name", "slug", "product", "billing", "price_inr", "currency", "period_days", "credits", "videos_per_analysis",
@@ -72,7 +80,7 @@ def test_admin_plan_rejects_over_25():
 
 # ---- Offer tag ----
 def test_offer_tag_roundtrip():
-    a = login(*QA_ADMIN)
+    a = L(QA_ADMIN)
     orig = C().get("/public/config").json().get("offer_tag")
     STATE["orig_tag"] = orig
     try:
@@ -91,7 +99,7 @@ def test_offer_tag_roundtrip():
 
 
 def test_player_cannot_save_settings():
-    p = login(*QA_PLAYER)
+    p = L(QA_PLAYER)
     assert p.put("/admin/settings", json={"offer": {"tag": "hack"}, "confirm": True}).status_code == 403
 
 
@@ -105,7 +113,7 @@ def _ffmpeg_clip(path, secs):
 
 
 def test_upload_over_25s_rejected():
-    p = login(*QA_PLAYER)
+    p = L(QA_PLAYER)
     path = _ffmpeg_clip("/tmp/iter8_30s.mp4", 30)
     with open(path, "rb") as f:
         r = p.post("/videos", files={"file": ("long.mp4", f, "video/mp4")}, data={"analysis_type": "batting", "angle": "side_on"})
@@ -114,7 +122,7 @@ def test_upload_over_25s_rejected():
 
 
 def test_upload_under_25s_accepted():
-    p = login(*QA_PLAYER)
+    p = L(QA_PLAYER)
     path = _ffmpeg_clip("/tmp/iter8_20s.mp4", 20)
     with open(path, "rb") as f:
         r = p.post("/videos", files={"file": ("short.mp4", f, "video/mp4")}, data={"analysis_type": "batting", "angle": "side_on"})
@@ -126,7 +134,7 @@ def test_upload_under_25s_accepted():
 # ---- Email templates ----
 CODE_T = ["verify_email", "login_otp", "reset_password", "step_up", "change_email"]
 NONCODE_T = ["report_delivery", "welcome", "coach_welcome", "receipt", "maintenance", "notice", "join_request", "join_decision", "academy_invite",
-             "abuse_report", "password_changed", "payment_failed", "report_ready", "test", "guardian_consent"]
+             "abuse_report", "password_changed", "payment_failed", "report_ready", "test"]
 CTX = dict(code="123456", kind="batting", pdf_note="Your PDF report is attached.", share="https://x/s", link="https://cta.example/link",
            amount="₹799", plan="Batting Starter", payment_id="pay_1", academy="Acad", role="coach", player="P", decision="approved",
            start="a", end="b", message="m", reporter="R", target="T", reason="Harassment", details="d")
@@ -147,6 +155,13 @@ def test_noncode_emails_no_code_note(t):
     assert "Never share this code" not in text and "Never share this code" not in html
     if t not in ("maintenance", "test", "guardian_consent"):
         assert "https://cta.example/link" in html, t
+
+
+def test_guardian_consent_has_code_and_own_note():
+    from core import render_email
+    s, html, text = render_email("guardian_consent", CTX)
+    assert "123456" in html
+    assert "Only share this code if you consent" in text  # own note (not the generic 'Never share this code')
 
 
 def test_report_delivery_content():
@@ -187,18 +202,19 @@ def test_welcome_email_on_verify(role, tmpl, path):
 def _setup_academy():
     if "aid" in STATE:
         return STATE
-    co = login(*QA_COACH)
+    co = L(QA_COACH)
     r = co.get("/academies/mine")
     aid = None
-    for a in (r.json() if isinstance(r.json(), list) else r.json().get("academies", [])):
-        if a.get("owner_id") == co.user["id"] or a.get("role") == "academy_admin":
-            aid = a.get("id") or a.get("academy_id")
+    # /academies/mine -> {"memberships": [...]}; reuse an existing academy the QA coach administers
+    for m in r.json().get("memberships", []):
+        if m.get("role") == "academy_admin":
+            aid = m.get("academy_id")
             break
     if not aid:
         aid = co.post("/academies", json={"name": "TEST_QA Academy", "city": "Pune"}).json()["id"]
         STATE["created_academy"] = aid
     code = mdb.academies.find_one({"id": aid})["code"]
-    p = login(*QA_PLAYER)
+    p = L(QA_PLAYER)
     if not mdb.academy_memberships.find_one({"academy_id": aid, "user_id": p.user["id"], "status": "active"}):
         r = p.post("/academies-join", json={"code": code})
         assert r.status_code in (200, 409), r.text
@@ -213,7 +229,7 @@ def _setup_academy():
 
 def test_staff_list():
     s = _setup_academy()
-    p = login(*QA_PLAYER)
+    p = L(QA_PLAYER)
     r = p.get(f"/academies/{s['aid']}/staff")
     assert r.status_code == 200, r.text
     ids = {x["user_id"] for x in r.json()}
@@ -223,7 +239,7 @@ def test_staff_list():
 
 def test_abuse_validation():
     s = _setup_academy()
-    p = login(*QA_PLAYER)
+    p = L(QA_PLAYER)
     assert p.post("/abuse-reports", json={"academy_id": s["aid"], "reason": "bogus", "details": "long enough details"}).status_code == 422
     assert p.post("/abuse-reports", json={"academy_id": s["aid"], "reason": "other", "details": "short"}).status_code == 422
     r = p.post("/abuse-reports", json={"academy_id": s["aid"], "target_user_id": s["player_id"], "reason": "other", "details": "not staff target test"})
@@ -232,7 +248,7 @@ def test_abuse_validation():
 
 def test_abuse_non_member_and_rate_limit():
     s = _setup_academy()
-    o = login(*QA_ADMIN)  # admin is not a member of the TEST academy (avoids signup IP rate limit)
+    o = L(QA_ADMIN)  # admin is not a member of the TEST academy (avoids signup IP rate limit)
     assert o.get(f"/academies/{s['aid']}/staff").status_code == 404
     codes = [o.post("/abuse-reports", json={"academy_id": s["aid"], "reason": "other", "details": "non member report test"}).status_code for _ in range(6)]
     assert codes[:5] == [404] * 5, codes
@@ -241,11 +257,17 @@ def test_abuse_non_member_and_rate_limit():
 
 def test_abuse_create_and_admin_flow():
     s = _setup_academy()
-    p = login(*QA_PLAYER)
-    r = p.post("/abuse-reports", json={"academy_id": s["aid"], "target_user_id": s["pcoach_id"], "reason": "harassment",
-                                       "details": "TEST_iter8 automated QA report — please ignore"})
-    assert r.status_code == 200, r.text
-    rid = r.json()["id"]
+    p = L(QA_PLAYER)
+    # email budget: reuse an existing TEST_iter8 report if already created (each create emails ADMIN_EMAIL)
+    ex = mdb.abuse_reports.find_one({"details": "TEST_iter8 automated QA report — please ignore"}, sort=[("created_at", -1)])
+    if ex:
+        rid = ex["id"]
+        mdb.abuse_reports.update_one({"id": rid}, {"$set": {"status": "open"}})
+    else:
+        r = p.post("/abuse-reports", json={"academy_id": s["aid"], "target_user_id": s["pcoach_id"], "reason": "harassment",
+                                           "details": "TEST_iter8 automated QA report — please ignore"})
+        assert r.status_code == 200, r.text
+        rid = r.json()["id"]
     created_reports.append(rid)
     doc = mdb.abuse_reports.find_one({"id": rid})
     assert doc["status"] == "open" and doc["target_user_id"] == s["pcoach_id"]
@@ -254,7 +276,7 @@ def test_abuse_create_and_admin_flow():
     assert log, "no abuse_report email log"
     print("abuse email log", {k: log.get(k) for k in ("to", "status", "template")})
     assert p.get("/admin/abuse-reports").status_code == 403
-    a = login(*QA_ADMIN)
+    a = L(QA_ADMIN)
     rows = a.get("/admin/abuse-reports?status=open").json()
     assert any(x["id"] == rid and x["reason_label"] == "Harassment or bullying" for x in rows)
     assert a.post(f"/admin/abuse-reports/{rid}", json={"status": "resolved", "note": "TEST"}).status_code == 200

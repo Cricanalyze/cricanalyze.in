@@ -1,0 +1,57 @@
+{
+  "summary": "Iteration 8: tested new pricing (12 plans), 1.5x struck-out MRP, offer tag (admin Plans tab + pricing + checkout), 25s video limit (backend + upload page), per-template email content (render_email), coach_welcome on verify, Report Abuse (player dialog + admin tab), Compare-with-last-report option, regression of home/pricing/login/admin/billing. Backend 41/42 pytest pass; the 1 failure is a real bug: comparison never works for basic report-level plans. Frontend flows all passed.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "GET /api/analyses/{id} (attach_view/history_for)", "issue": "On basic report-level plans (e.g. batting-starter, combined-starter, academy-starter, QA player's plan) compare_previous=true NEVER shows a comparison. Instead it shows a wrong compare_note saying 'there's no earlier batting report from the same camera angle yet', even when an earlier comparable report exists. Root cause: load_report_for -> filter_report(level basic, lvl<1) sets every metric value to None BEFORE attach_view -> history_for -> report_view.comparable_history, so no rows match and it returns None. entitlements() still reports comparisons=True for these plans, and pricing shows 'Before/after comparisons' on Starter plans, so the upload page offers the checkbox. Reproduced: job 18864366... with compare_previous=true gives progress=None plus the wrong note on basic, and progress present on advanced.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "attach_view", "issue": "Legacy jobs with no compare_previous field and report_level!='basic' default to want=True, so when there's no history they now get compare_note 'You asked to compare…' even though the user never asked. Only add compare_note when job.get('compare_previous') is True."},
+      {"endpoint": "core.EMAIL_TEMPLATES guardian_consent", "issue": "This code email uses its own note 'Only share this code if you consent. CricAnalyze staff will never ask for it.' and does NOT include 'Never share this code' as the review request expects. The wording arguably fits better. Confirm which is intended."},
+      {"endpoint": "core.EMAIL_TEMPLATES", "issue": "welcome, coach_welcome, report_ready and join_decision still use the generic ACCOUNT_NOTE footer. This is fine, but they are not 'unique' notes."},
+      {"endpoint": "GET entitlements (existing subs)", "issue": "The QA player's legacy subscription plan_snapshot still reports max_duration_s=300 in entitlements. The upload hard cap of 25s still holds on server and client, but the value is inconsistent."},
+      {"endpoint": "POST /api/abuse-reports", "issue": "rate_limit (5/hr) runs before the membership and target checks, so invalid attempts (wrong target, non-member) use up the player's quota."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Upload > Compare with my last report (basic plans)", "issue": "The checkbox is shown and on by default for basic-level plans, but the report then shows the wrong 'no earlier report' note (backend bug above).", "affected_selectors": ["[data-testid='compare-option-card']", "[data-testid='compare-note']"]}
+    ],
+    "design_issues": [
+      {"screen": "All pages (logged out)", "issues": ["Console shows 401 errors from the /api/auth/me probe on public pages. This is harmless noise."]}
+    ]
+  },
+  "passed_checks": [
+    "GET /api/plans: 12 plans with exact price/credits, all max_duration_s=25, combined/academy batting+bowling",
+    "Admin PlanIn rejects max_duration_s=30 (422, PUT+POST)",
+    "Pricing page, all 4 tabs: MRP = round(1.5x) correct for all 12 (e.g. 799->₹1,199, 1299->₹1,949, 3999->₹5,999), amber note, offer badge; mobile 390px OK",
+    "Checkout /app/billing?plan=combined-pro: checkout-mrp ₹2,849 + checkout-offer-tag",
+    "Admin Plans tab offer-tag-card: save 'Diwali Offer' -> toast, public config + pricing badge; Remove -> '' and badges hidden; not in Flags & limits tab",
+    "POST /api/videos 30s -> 422 '...25 seconds or shorter'; 20s accepted",
+    "Upload page: header 'each 25 seconds or shorter', upload-duration-note, 30s file rejected client-side with toast, 20s accepted; compare-option-card + checkbox default checked and toggles",
+    "render_email: 5 code templates have 'Never share this code'; 14 non-code templates don't and have their CTA link; report_delivery mentions attached PDF + 'Please go through the website for the in-detail analysis' + 'Open full report'",
+    "Signup+verify coach/academy_admin -> email_logs coach_welcome; player -> welcome",
+    "Abuse: staff list, 422 for bad reason/short details/non-staff target, 404 for non-member, 429 rate limit, admin list/resolve/dismiss/404/422, player gets 403 on admin list, email to ADMIN_EMAIL accepted",
+    "Abuse UI: report-coach-btn, dialog, target options (academy + 2 staff), submit disabled until reason + 10 chars, success toast, dialog closes; admin tab filters open/resolved/dismissed/all and resolve/dismiss buttons work",
+    "Report page: compare-note shown for first report with compare_previous; progress-comparison shown for later report (advanced level); neither when false"
+  ],
+  "test_report_links": ["/app/backend/tests/test_iter8_pricing_abuse_email.py", "/app/backend/tests/test_iter8_compare_previous.py", "/app/test_reports/pytest/iter8.xml"],
+  "action_items": [
+    "Fix comparison on basic report-level plans: compute history_for on the unfiltered report (or fetch raw metrics) before filter_report nulls the values, or hide the compare option / 'Before/after comparisons' bullet for basic plans. Also don't show the 'no earlier report' note when earlier reports exist.",
+    "In attach_view, only set compare_note when job.get('compare_previous') is True (not for legacy defaults)",
+    "Decide whether guardian_consent should include 'Never share this code' (spec) or keep its custom note",
+    "Optional: move the abuse rate_limit after validation; clamp entitlements max_duration_s to 25"
+  ],
+  "critical_code_review_comments": [
+    "analysis_routes.py is 860 lines (>700): split upload/analysis/report-view modules",
+    "attach_view: entitlement 'comparisons' is True on basic plans whose metrics are locked, so the feature is advertised but can't work",
+    "Previous test runs created duplicate 'TEST_QA Academy' academies because _setup_academy read the wrong key from /academies/mine. Fixed in the test (reads 'memberships'). The extra TEST academies were removed; 2 remain because abuse reports reference them."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter8_pricing_abuse_email.py", "/app/backend/tests/test_iter8_compare_previous.py"],
+  "success_rate": {"backend": "97.6% (41/42; the 1 failure is a real bug)", "frontend": "100% of tested flows (compare on basic plans affected by backend bug)"},
+  "seed_data_creation": "Abuse reports: 2 via API (from an earlier run) plus 1 via UI (id 3a5441515c...); now resolved/dismissed/open. TEST_ signup users from the welcome tests are cleaned by the fixture. Offer tag reset to '' at the end. compare_previous/report_level on qa.player jobs restored. Rate-limit buckets for QA accounts and the shared egress IP were cleared to unblock tests.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Login testids: login-email-input / login-password-input / login-submit-btn. Shared egress IP 35.186.245.91 hits login rate limits (30/15min per IP, 15 per email) quickly. The iter8 test caches logins via L(); clear db.rate_limits '^loginemail:qa\\.' if blocked. Run with -n0 for small files. Don't create more abuse reports (each emails the owner). The test reuses an existing TEST_iter8 report. The QA player's batting jobs f7c71b40… (first) and 18864366… (last) are report_level basic.",
+  "rca of the issue": "Basic-level comparison: load_report_for() -> filter_report(rep,'basic') replaces metric values with None (status 'locked'); attach_view() then calls history_for(rep) on this filtered rep; comparable_history requires m['value'] is not None and status in SCORABLE for the current report, so rows=[] -> None -> the wrong compare_note. Repro: set compare_previous=true on job 18864366759e4e2c8da2978c8757105c (basic) and GET /api/analyses/{id}: progress=None plus the note. Set report_level=advanced and progress is present. Fix: build history from the raw db report before filtering, or disable comparisons for basic level."
+}
