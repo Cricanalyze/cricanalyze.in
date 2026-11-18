@@ -1,5 +1,6 @@
-"""One-off: bowling demo clip (no pads) via fal.ai Universal Key: nano-banana-pro start frame -> Kling v3 Pro image-to-video.
-Run: python scripts/gen_bowling_demo.py image   |   python scripts/gen_bowling_demo.py video <start_image_url>"""
+"""One-off: bowling demo clip (no pads, release at the bowling crease) via fal.ai Universal Key.
+nano-banana-pro start frame -> nano-banana-pro/edit end frame -> Kling v3 Pro image-to-video (start+end frames).
+Run: python scripts/gen_bowling_demo.py start | end <start_url> | video <start_url> <end_url>"""
 import os, sys, time, json, requests
 from dotenv import load_dotenv
 
@@ -10,18 +11,24 @@ CONTROL = os.environ.get("INTEGRATION_PROXY_URL", "https://integrations.emergent
 H = {"Authorization": f"Bearer {KEY}", "Content-Type": "application/json"}
 OUT = "/app/scripts/out/"
 
-KIT = ("He wears ONLY a plain white long-sleeve cricket shirt, plain white cricket trousers and white spiked shoes. "
-       "He is NOT wearing leg pads, NOT wearing batting pads, NOT wearing a helmet, NOT wearing gloves; both legs show only white trousers; bare head with short hair. ")
-IMG_PROMPT = ("Photorealistic broadcast sports photo, 16:9. A right-arm fast bowler in mid run-up during a cricket match in a large stadium. " + KIT +
-              "He holds a red cricket ball in his right hand. Camera exactly side-on at hip height, about 12 metres away, perpendicular to the pitch. "
-              "The light-brown 22-yard pitch with white crease lines runs horizontally left to right across the middle of the frame; "
-              "the bowler is on the left part of the frame running toward the right; three wooden stumps with bails stand at the bowling crease at the right of the frame. "
-              "Background: green outfield, white boundary rope, a white sight screen and packed spectator stands, blue sky, bright afternoon sun. "
-              "Whole body in frame, sharp detail, no text, no logos, no watermark.")
-VID_PROMPT = ("The fast bowler runs in from left to right along the pitch, leaps into his gather, lands back foot then braced front foot at the crease next to the stumps, "
-              "swings his right bowling arm straight over the top and releases the red ball down the pitch toward the right, then follows through. " + KIT +
-              "Static side-on camera, no camera movement, no zoom, no cuts, realistic human motion, natural daylight.")
-NEG = "leg pads, batting pads, knee pads, shin guards, helmet, gloves, bat, batsman, wicketkeeper, text, captions, watermark, logo, blur, distortion, extra limbs, camera movement, cartoon"
+KIT = ("He wears ONLY a plain white long-sleeve cricket shirt, plain white cricket trousers and white spiked shoes; "
+       "NO leg pads, NO batting pads, NO helmet, NO gloves; bare head with short hair. ")
+SCENE = ("Camera exactly side-on at hip height, about 12 metres away, perpendicular to the pitch, static. "
+         "The bowler's own end of the pitch fills the frame: in the CENTRE-RIGHT of the frame stand three wooden stumps with bails on the bowling crease, "
+         "with the white popping crease line painted on the turf just in front of them (to the right). The rest of the 22-yard light-brown pitch continues off the right edge of the frame toward the far batsman. "
+         "Background: green outfield, white boundary rope, white sight screen, packed spectator stands, blue sky, bright afternoon sun. "
+         "Whole body in frame, sharp detail, no text, no logos, no watermark. ")
+START = ("Photorealistic broadcast sports photo, 16:9. A right-arm fast bowler in a cricket stadium, two strides before the bowling crease, "
+         "on the left-centre of the frame, running toward the right, red ball in his right hand held near his chest. " + KIT + SCENE)
+END = ("Edit this photo: keep the same bowler, same clothes (no pads, no helmet, no gloves), same camera, same stadium, same stumps and crease. "
+       "Change only his pose: he has just released the ball. His braced front (left) foot is planted on the popping crease right beside the stumps, "
+       "his right bowling arm has swung straight over the top and is now coming down across his body, his body leans forward toward the right. "
+       "The red ball is no longer in his hand, a small red ball is in the air just right of him heading down the pitch to the right.")
+VID = ("Static side-on camera, no camera movement, no pan, no zoom, no cuts. The fast bowler takes his last two strides, leaps into the gather, "
+       "lands back foot then braced front foot on the popping crease right next to the stumps at his own end, swings his right bowling arm straight over the top "
+       "and releases the red ball AT the crease beside those stumps, the ball travels away down the pitch to the right. " + KIT +
+       "Realistic human motion, natural daylight.")
+NEG = "leg pads, batting pads, knee pads, shin guards, helmet, gloves, bat, batsman, wicketkeeper, camera pan, camera tracking, camera movement, zoom, text, watermark, logo, blur, distortion, extra limbs, cartoon"
 
 
 def run(endpoint, payload, timeout=900):
@@ -45,14 +52,21 @@ def run(endpoint, payload, timeout=900):
     sys.exit("timeout")
 
 
+def save_images(res, prefix):
+    for i, im in enumerate(res["images"]):
+        open(f"{OUT}{prefix}_{i}.png", "wb").write(requests.get(im["url"], timeout=120).content)
+        print(f"{prefix}_{i}.png", im["url"], flush=True)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
-    if sys.argv[1] == "image":
-        res = run("fal-ai/nano-banana-pro", {"prompt": IMG_PROMPT, "num_images": 2, "aspect_ratio": "16:9", "resolution": "2K", "output_format": "png"})
-        for i, im in enumerate(res["images"]):
-            open(f"{OUT}start_{i}.png", "wb").write(requests.get(im["url"], timeout=120).content)
-            print(f"start_{i}.png", im["url"], flush=True)
+    mode = sys.argv[1]
+    if mode == "start":
+        save_images(run("fal-ai/nano-banana-pro", {"prompt": START, "num_images": 2, "aspect_ratio": "16:9", "resolution": "2K", "output_format": "png"}), "start")
+    elif mode == "end":
+        save_images(run("fal-ai/nano-banana-pro/edit", {"prompt": END, "image_urls": [sys.argv[2]], "num_images": 2, "aspect_ratio": "16:9", "resolution": "2K", "output_format": "png"}), "end")
     else:
-        res = run("fal-ai/kling-video/v3/pro/image-to-video", {"start_image_url": sys.argv[2], "prompt": VID_PROMPT, "negative_prompt": NEG, "duration": "5", "generate_audio": False})
+        res = run("fal-ai/kling-video/v3/pro/image-to-video", {"start_image_url": sys.argv[2], "end_image_url": sys.argv[3], "prompt": VID,
+                                                              "negative_prompt": NEG, "duration": "4", "cfg_scale": 0.7, "generate_audio": False})
         open(f"{OUT}bowling_raw.mp4", "wb").write(requests.get(res["video"]["url"], timeout=180).content)
         print("bowling_raw.mp4 saved", flush=True)
