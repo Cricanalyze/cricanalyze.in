@@ -1,0 +1,18 @@
+[Unit]
+Description=CricAnalyze backend (FastAPI)
+After=network.target mongod.service
+Requires=mongod.service
+
+[Service]
+User=cricanalyze
+Group=cricanalyze
+WorkingDirectory=__APP_DIR__/backend
+# Single worker: the analysis queue, scheduler and media cache run inside this process.
+ExecStart=__APP_DIR__/venv/bin/uvicorn server:app --host 127.0.0.1 --port 8001 --workers 1 --proxy-headers --forwarded-allow-ips=127.0.0.1
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

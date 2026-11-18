@@ -375,11 +375,42 @@ async def verify_otp(email: str, purpose: str, code: str):
 STORAGE_BASE = (os.environ.get("INTEGRATION_PROXY_URL") or "").strip() or "https://integrations.emergentagent.com"
 STORAGE_URL = STORAGE_BASE.rstrip("/") + "/objstore/api/v1/storage"
 BUCKET_PREFIX = os.environ.get("VIDEO_STORAGE_BUCKET", "cricanalyze")
+# "local" = files on this server's disk (self-hosted VPS); anything else = Emergent object storage
+STORAGE_BACKEND = (os.environ.get("STORAGE_BACKEND") or "emergent").strip().lower()
+STORAGE_DIR = Path(os.environ["STORAGE_DIR"]) if STORAGE_BACKEND == "local" else None
 _storage_key = None
+
+
+def _local_path(path):
+    parts = [p for p in str(path).split("/") if p]
+    if not parts or any(p in (".", "..") for p in parts):
+        raise ValueError("invalid storage path")
+    return STORAGE_DIR.joinpath(*parts)
+
+
+def _local_put(path, data, content_type):
+    f = _local_path(path)
+    f.parent.mkdir(parents=True, exist_ok=True)
+    tmp = f.with_name(f.name + ".tmp")
+    tmp.write_bytes(data)
+    tmp.replace(f)
+    f.with_name(f.name + ".ctype").write_text(content_type or "application/octet-stream")
+    return {"path": path, "size": len(data)}
+
+
+def _local_get(path):
+    f = _local_path(path)
+    if not f.is_file():
+        raise FileNotFoundError(path)
+    ct = f.with_name(f.name + ".ctype")
+    return f.read_bytes(), (ct.read_text().strip() if ct.is_file() else "application/octet-stream")
 
 
 def init_storage(force=False):
     global _storage_key
+    if STORAGE_BACKEND == "local":
+        STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+        return "local"
     if _storage_key and not force:
         return _storage_key
     r = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": LLM_KEY}, timeout=30)
@@ -389,6 +420,8 @@ def init_storage(force=False):
 
 
 def put_object(path, data: bytes, content_type: str):
+    if STORAGE_BACKEND == "local":
+        return _local_put(path, data, content_type)
     for attempt in range(2):
         r = requests.put(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": init_storage(attempt > 0), "Content-Type": content_type},
                          data=data, timeout=180)
@@ -413,6 +446,8 @@ def _fetch_object(path):
 
 
 def get_object(path):
+    if STORAGE_BACKEND == "local":
+        return _local_get(path)
     # Stored objects are immutable, so a small in-memory LRU avoids refetching on every Range request.
     with _obj_guard:
         if path in _obj_cache:
