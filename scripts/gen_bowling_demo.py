@@ -20,14 +20,14 @@ SCENE = ("Camera exactly side-on at hip height, about 12 metres away, perpendicu
          "Whole body in frame, sharp detail, no text, no logos, no watermark. ")
 START = ("Photorealistic broadcast sports photo, 16:9. A right-arm fast bowler in a cricket stadium, two strides before the bowling crease, "
          "on the left-centre of the frame, running toward the right, red ball in his right hand held near his chest. " + KIT + SCENE)
-END = ("Edit this photo: keep the same bowler, same clothes (no pads, no helmet, no gloves), same camera, same stadium, same stumps and crease. "
-       "Change only his pose: he has just released the ball. His braced front (left) foot is planted on the popping crease right beside the stumps, "
-       "his right bowling arm has swung straight over the top and is now coming down across his body, his body leans forward toward the right. "
-       "The red ball is no longer in his hand, a small red ball is in the air just right of him heading down the pitch to the right.")
-VID = ("Static side-on camera, no camera movement, no pan, no zoom, no cuts. The fast bowler takes his last two strides, leaps into the gather, "
-       "lands back foot then braced front foot on the popping crease right next to the stumps at his own end, swings his right bowling arm straight over the top "
-       "and releases the red ball AT the crease beside those stumps, the ball travels away down the pitch to the right. " + KIT +
-       "Realistic human motion, natural daylight.")
+END = ("Edit this photo: keep the same bowler, same clothes (no pads, no helmet, no gloves), same camera position, same stadium, same stumps and crease lines. "
+       "Change only his pose to the exact moment of ball release in a classic side-on fast-bowling action: his braced, straight front (left) leg is planted on the popping crease right beside the stumps, "
+       "his right bowling arm is fully straight and vertical directly above his head, the red ball just leaving his fingertips at the top of the arc, "
+       "his left arm is pulled down and tucked into his side, chest and head facing down the pitch to the right, back foot dragging behind him.")
+VID = ("Static side-on camera, no camera movement, no pan, no zoom, no cuts. The fast bowler takes his last strides toward the stumps, leaps into the gather, "
+       "lands his back foot, then plants a straight braced front leg on the popping crease right beside the stumps while his right bowling arm swings in a full circle "
+       "straight over the top of his head, ending at the release point with the arm vertical and the red ball leaving his fingertips. " + KIT +
+       "Realistic, athletic fast-bowling motion, natural daylight.")
 NEG = "leg pads, batting pads, knee pads, shin guards, helmet, gloves, bat, batsman, wicketkeeper, camera pan, camera tracking, camera movement, zoom, text, watermark, logo, blur, distortion, extra limbs, cartoon"
 
 
@@ -64,7 +64,7 @@ if __name__ == "__main__":
     if mode == "start":
         save_images(run("fal-ai/nano-banana-pro", {"prompt": START, "num_images": 2, "aspect_ratio": "16:9", "resolution": "2K", "output_format": "png"}), "start")
     elif mode == "end":
-        save_images(run("fal-ai/nano-banana-pro/edit", {"prompt": END, "image_urls": [sys.argv[2]], "num_images": 2, "aspect_ratio": "16:9", "resolution": "2K", "output_format": "png"}), "end")
+        save_images(run("fal-ai/nano-banana-pro/edit", {"prompt": END, "image_urls": [sys.argv[2]], "num_images": 1, "aspect_ratio": "16:9", "resolution": "2K", "output_format": "png"}), "end")
     else:
         res = run("fal-ai/kling-video/v3/pro/image-to-video", {"start_image_url": sys.argv[2], "end_image_url": sys.argv[3], "prompt": VID,
                                                               "negative_prompt": NEG, "duration": "4", "cfg_scale": 0.7, "generate_audio": False})
