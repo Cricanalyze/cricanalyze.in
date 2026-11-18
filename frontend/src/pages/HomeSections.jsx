@@ -95,7 +95,7 @@ export const FilmingGuide = () => (
   </Wrap>
 );
 
-const ACADEMY = [[KeyRound, "Private join codes", "Every academy gets a unique code. Players type it in, request to join, and you accept."], [Trophy, "Batting & bowling leaderboards", "Rank your players by their latest technique score, with nicknames you choose."], [IndianRupee, "Referral commission", "Share your referral link — earn on students who subscribe, paid out by CricAnalyze."], [BadgeCheck, "Verified coaches only", "Coaches upload an employee ID or certificate and are approved before seeing any player data."]];
+const ACADEMY = [[KeyRound, "Private join codes", "Every academy gets a unique code. Players type it in, request to join, and you accept."], [Trophy, "Batting & bowling leaderboards", "Rank your players by their latest technique score, with nicknames you choose."], [IndianRupee, "Referral commission", "Share your referral link — earn on students who subscribe, paid out by CricAnalyze."], [BadgeCheck, "Player-controlled sharing", "Coaches see a player's reports only after the player turns sharing on for the academy."]];
 
 export const AcademySection = () => (
   <Wrap className="!pt-0">

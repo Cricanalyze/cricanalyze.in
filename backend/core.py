@@ -84,7 +84,6 @@ DEFAULT_SETTINGS = {
     "keys": {"anthropic_mode": "rotate", "ultralytics_mode": "rotate"},
     "commission": {"mode": "percent_every", "value": 10},
 }
-APPROVAL_OPEN = ("/api/auth/", "/api/account/", "/api/media/", "/api/plans", "/api/public/")
 
 
 async def get_settings():
@@ -129,8 +128,6 @@ async def current_user(request: Request):
     if not u or u.get("status") == "suspended":
         raise HTTPException(401, "Your session is no longer valid.")
     u["_session"] = {"id": s["id"], "step_up_until": s.get("step_up_until")}
-    if u["role"] in ("coach", "academy_admin") and u.get("approval_status") in ("pending", "rejected") and not request.url.path.startswith(APPROVAL_OPEN):
-        raise HTTPException(403, "coach_approval_pending")
     return u
 
 
@@ -186,7 +183,6 @@ EMAIL_TEMPLATES = {
                         "Your {kind} analysis report is ready. Open it in CricAnalyze: {link} — Shareable link (anyone with it can view): {share}. {pdf_note}", False),
     "join_request": ("New join request — {academy}", "Join request", "{player} asked to join {academy}. Review it in CricAnalyze: {link}", False),
     "join_decision": ("Your request to join {academy}", "Academy request {decision}", "Your request to join {academy} was {decision}.", False),
-    "coach_approval": ("Your CricAnalyze coach account was {decision}", "Account {decision}", "{message}", False),
     "maintenance": ("Scheduled maintenance — CricAnalyze", "Scheduled maintenance",
                     "CricAnalyze will be under maintenance from {start} to {end} (IST). During this time the website and app will be unavailable. {message}", False),
     "notice": ("Important account notice — CricAnalyze", "Account notice", "{message}", False),

@@ -47,26 +47,6 @@ export const ApiKeys = () => {
   </div>);
 };
 
-export const Approvals = () => {
-  const [status, setStatus] = useState("pending");
-  const [rows, setRows] = useState(null);
-  const [note, setNote] = useState({});
-  const load = useCallback(() => api.get("/admin/approvals", { params: { status } }).then(({ data }) => setRows(data)), [status]);
-  useEffect(() => { load(); }, [load]);
-  const decide = async (u, approve) => { try { await api.post(`/admin/approvals/${u.id}`, { approve, note: note[u.id] || "" }); toast.success(approve ? "Approved." : "Rejected."); load(); } catch (e) { toast.error(errMsg(e)); } };
-  return (<div className="space-y-4">
-    <div className="flex gap-2">{["pending", "approved", "rejected"].map((s) => <Button key={s} size="sm" variant={status === s ? "default" : "secondary"} onClick={() => setStatus(s)} className="capitalize" data-testid={`approvals-${s}`}>{s}</Button>)}</div>
-    {rows === null ? "Loading…" : !rows.length ? <p className="text-sm text-slate-500" data-testid="approvals-empty">Nothing here.</p> : rows.map((u) => <Card key={u.id} className="flex flex-wrap justify-between gap-3" data-testid={`approval-${u.id}`}>
-      <div><div className="font-semibold">{u.full_name} <Badge>{u.role.replace("_", " ")}</Badge></div><div className="text-xs text-slate-400">{u.email} · signed up {fmtDate(u.created_at)}</div>
-        {u.verification_doc ? <a href={`${process.env.REACT_APP_BACKEND_URL}${u.verification_doc.url}`} target="_blank" rel="noreferrer" className="text-sm text-[#00B4D8] hover:underline" data-testid={`approval-doc-${u.id}`}>View {u.verification_doc.label} ({u.verification_doc.filename || "file"})</a> : <p className="text-sm text-amber-300">No document uploaded yet</p>}
-        {u.approval_note && <p className="text-xs text-slate-500">Note: {u.approval_note}</p>}</div>
-      {status !== "approved" && <div className="flex gap-2 items-center"><Input placeholder="Note (optional)" value={note[u.id] || ""} onChange={(e) => setNote({ ...note, [u.id]: e.target.value })} className="w-48" data-testid={`approval-note-${u.id}`} />
-        <Button size="sm" onClick={() => decide(u, true)} disabled={!u.verification_doc} data-testid={`approve-${u.id}`}>Approve</Button>
-        {status === "pending" && <Button size="sm" variant="ghost" className="text-red-300" onClick={() => decide(u, false)} data-testid={`reject-${u.id}`}>Reject</Button>}</div>}
-    </Card>)}
-  </div>);
-};
-
 const MODES = [["percent_every", "% of every referred payment"], ["percent_first", "% of first payment only"], ["fixed_per_student", "Fixed ₹ per paying student"]];
 
 export const Commissions = () => {

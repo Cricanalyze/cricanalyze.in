@@ -3,7 +3,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Request, HTTPException, Depends
 from pydantic import BaseModel, Field
 import key_pool
-from core import db, now, uid, audit, ADMIN, send_email, sign_media, sanitize_error, llm_text, AI_MODEL
+from core import db, now, uid, audit, ADMIN, sanitize_error, llm_text, AI_MODEL
 
 router = APIRouter(prefix="/api/admin")
 
@@ -102,37 +102,6 @@ async def test_key(kid: str, provider: str, a=Depends(ADMIN)):
         return {"ok": ok, "message": "Key works." if ok else "Unexpected reply."}
     except Exception as ex:
         return {"ok": False, "message": sanitize_error(ex)}
-
-
-# ---------- coach / academy approvals ----------
-@router.get("/approvals")
-async def approvals(status: str = "pending", a=Depends(ADMIN)):
-    rows = await db.users.find({"role": {"$in": ["coach", "academy_admin"]}, "approval_status": status, "deleted": {"$ne": True}},
-                               {"_id": 0, "id": 1, "full_name": 1, "email": 1, "role": 1, "approval_status": 1, "verification_doc": 1, "created_at": 1, "approval_note": 1}).sort("created_at", -1).to_list(300)
-    for r in rows:
-        d = r.get("verification_doc")
-        if d:
-            d["url"] = sign_media(d["asset_id"], 1800)
-    return rows
-
-
-class DecisionIn(BaseModel):
-    approve: bool
-    note: str = Field("", max_length=300)
-
-
-@router.post("/approvals/{user_id}")
-async def decide(user_id: str, body: DecisionIn, request: Request, a=Depends(ADMIN)):
-    u = await db.users.find_one({"id": user_id, "role": {"$in": ["coach", "academy_admin"]}})
-    if not u:
-        raise HTTPException(404, "User not found.")
-    st = "approved" if body.approve else "rejected"
-    await db.users.update_one({"id": user_id}, {"$set": {"approval_status": st, "approval_note": body.note, "approved_at" if body.approve else "rejected_at": now(), "approved_by": a["id"]}})
-    msg = "Your coach / academy account is approved. You can now use all CricAnalyze coach features." if body.approve else \
-        f"Your coach / academy verification wasn't approved. {body.note} You can upload a new document from your account."
-    await send_email(u["email"], "coach_approval", {"decision": st, "message": msg}, user_id)
-    await audit(a["id"], f"admin.coach_{st}", user_id, {"note": body.note}, request)
-    return {"ok": True}
 
 
 # ---------- commissions ----------

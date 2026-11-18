@@ -1,7 +1,7 @@
 import os, re, json, secrets, base64
 from datetime import timedelta
 from typing import Optional
-from fastapi import APIRouter, Request, Response, HTTPException, Depends, UploadFile, File, Form
+from fastapi import APIRouter, Request, Response, HTTPException, Depends, UploadFile, File
 from pydantic import BaseModel, EmailStr, Field
 from argon2.exceptions import VerifyMismatchError, InvalidHashError
 from core import (db, ph, now, uid, hsign, norm_email, client_ip, rate_limit, audit, create_session, clear_session_cookies,
@@ -70,7 +70,7 @@ async def signup(body: SignupIn, request: Request):
         return {"ok": True, "message": GENERIC}
     from academy_routes import academy_by_code
     ref_ac = await academy_by_code(body.ref) if body.ref and body.role in ("player", "parent") else None
-    extra = {"approval_status": "pending"} if body.role in ("coach", "academy_admin") else {"approval_status": None}
+    extra = {"approval_status": None}
     if ref_ac:
         extra.update(referred_academy_id=ref_ac["id"], referred_at=now())
     if not existing:
@@ -366,35 +366,6 @@ async def upload_avatar(file: UploadFile = File(...), u=Depends(current_user)):
                                       "content_type": kind, "size": len(data), "public": True, "is_deleted": False, "created_at": now()})
     await db.users.update_one({"id": u["id"]}, {"$set": {"avatar_id": aid}})
     return {"avatar_id": aid}
-
-
-DOC_TYPES = {"employee_id": "Employee ID", "certificate": "Coaching certificate"}
-
-
-@router.post("/account/verification-doc")
-async def upload_verification(file: UploadFile = File(...), doc_type: str = Form("certificate"), u=Depends(current_user)):
-    if u["role"] not in ("coach", "academy_admin"):
-        raise HTTPException(403, "Only coach or academy accounts need verification.")
-    if doc_type not in DOC_TYPES:
-        raise HTTPException(422, "Choose employee ID or certificate.")
-    data = await file.read(8 * 1024 * 1024 + 1)
-    if len(data) > 8 * 1024 * 1024:
-        raise HTTPException(413, "File must be under 8 MB.")
-    kind = "image/png" if data[:8] == b"\x89PNG\r\n\x1a\n" else "image/jpeg" if data[:3] == b"\xff\xd8\xff" else "image/webp" if data[8:12] == b"WEBP" else \
-        "application/pdf" if data[:5] == b"%PDF-" else None
-    if not kind:
-        raise HTTPException(415, "Please upload a PDF, JPG, PNG or WEBP file.")
-    aid = uid()
-    res = put_object(f"{BUCKET_PREFIX}/verification/{u['id']}/{aid}", data, kind)
-    await db.media_assets.insert_one({"id": aid, "user_id": u["id"], "kind": "verification_doc", "storage_path": res["path"],
-                                      "content_type": kind, "size": len(data), "is_deleted": False, "created_at": now()})
-    doc = {"asset_id": aid, "doc_type": doc_type, "label": DOC_TYPES[doc_type], "filename": (file.filename or "")[:120], "content_type": kind, "uploaded_at": now()}
-    upd = {"verification_doc": doc}
-    if u.get("approval_status") != "approved":
-        upd["approval_status"] = "pending"
-    await db.users.update_one({"id": u["id"]}, {"$set": upd})
-    await audit(u["id"], "account.verification_uploaded", u["id"])
-    return {"ok": True, "approval_status": upd.get("approval_status", u.get("approval_status"))}
 
 
 class GuardianIn(BaseModel):

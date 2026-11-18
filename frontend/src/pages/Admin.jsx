@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { api, errMsg, fmtDate, inr } from "@/lib/api";
 import { PageHeader, Card, Badge, statusTone, Seo } from "@/components/Common";
-import { ApiKeys, Approvals, Commissions } from "@/components/AdminExtras";
+import { ApiKeys, Commissions } from "@/components/AdminExtras";
 import { MaintenanceAdmin } from "@/components/Maintenance";
 
 const useLoad = (path, params) => {
@@ -157,7 +157,7 @@ const Support = () => {
 const Audit = () => { const [d] = useLoad("/admin/audit"); return d ? <T testid="audit-table" head={["Time", "Actor", "Action", "Target", "IP"]} rows={d.map((a) => [new Date(a.created_at).toLocaleString("en-IN"), (a.actor_id || "").slice(0, 8), a.action, (a.target || "").slice(0, 12), a.ip || ""])} /> : "Loading…"; };
 const Academies = () => { const [d] = useLoad("/admin/academies"); return d ? <T head={["Name", "City", "Members", "Created"]} rows={d.map((a) => [a.name, a.city, a.members, fmtDate(a.created_at)])} /> : "Loading…"; };
 
-const TABS = [["overview", "Overview", Overview], ["users", "Users & roles", Users], ["approvals", "Coach approvals", Approvals], ["commissions", "Commissions", Commissions], ["apikeys", "API keys", ApiKeys], ["plans", "Plans", Plans], ["coupons", "Coupons", Coupons], ["payments", "Payments & credits", Payments], ["jobs", "Analysis jobs", Jobs],
+const TABS = [["overview", "Overview", Overview], ["users", "Users & roles", Users], ["commissions", "Commissions", Commissions], ["apikeys", "API keys", ApiKeys], ["plans", "Plans", Plans], ["coupons", "Coupons", Coupons], ["payments", "Payments & credits", Payments], ["jobs", "Analysis jobs", Jobs],
   ["integrations", "Integrations & email", Integrations], ["settings", "Flags & limits", SettingsTab], ["seo", "SEO", SeoTab], ["academies", "Academies", Academies], ["support", "Support", Support], ["maintenance", "Maintenance", MaintenanceAdmin], ["audit", "Audit log", Audit]];
 
 export default function Admin() {

@@ -4,7 +4,6 @@ import { Menu, X, LayoutDashboard, Upload, History, MessageSquare, CalendarCheck
 import { Logo } from "@/components/Common";
 import { useAuth, isStaff, isEditor } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
-import { ApprovalGate, needsApproval } from "@/components/ApprovalGate";
 import { useReveal, useScroll3D } from "@/components/useReveal";
 
 const NAV = [["Features", "/features"], ["How it works", "/how-it-works"], ["Pricing", "/pricing"], ["Blog", "/blog"], ["About", "/about"]];
@@ -84,7 +83,7 @@ export const AppLayout = () => {
           <Logo /><button onClick={() => setOpen(!open)} aria-label="Toggle navigation" data-testid="app-menu-btn">{open ? <X /> : <Menu />}</button>
         </header>
         {open && <div className="lg:hidden p-4 bg-[#0B132B] border-b border-white/5">{side}</div>}
-        <div className="px-4 sm:px-8 py-8 max-w-7xl"><div className="text-xs text-slate-500 mb-4" data-testid="signed-in-as">Signed in as {user?.full_name} · <span className="font-mono">{user?.role}</span></div>{needsApproval(user) ? <ApprovalGate /> : <Outlet />}</div>
+        <div className="px-4 sm:px-8 py-8 max-w-7xl"><div className="text-xs text-slate-500 mb-4" data-testid="signed-in-as">Signed in as {user?.full_name} · <span className="font-mono">{user?.role}</span></div><Outlet /></div>
       </div>
     </div>
   );

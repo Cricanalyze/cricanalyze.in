@@ -108,7 +108,6 @@ export const Signup = () => {
         <div className="space-y-1.5"><Label>I am a</Label><div className="grid grid-cols-2 gap-2">
           {ROLES.map(([v, l]) => <button type="button" key={v} onClick={() => setF({ ...f, role: v })} data-testid={`signup-role-${v}`}
             className={`text-sm py-2 rounded-lg border transition-colors ${f.role === v ? "border-[#10B981] bg-[#10B981]/10" : "border-white/10 hover:border-white/30"}`}>{l}</button>)}</div></div>
-        {["coach", "academy_admin"].includes(f.role) && <p className="text-xs text-amber-300" data-testid="signup-coach-note">Coach and academy accounts need an employee ID or coaching certificate, approved by our team, before you can continue.</p>}
         {["player", "parent"].includes(f.role) && <Field id="signup-ref" label="Academy referral code (optional)" maxLength={8} value={f.ref} onChange={(e) => setF({ ...f, ref: e.target.value.toUpperCase() })} />}
         <label className="flex gap-2 items-start text-sm text-slate-300"><Checkbox checked={f.accept_terms} onCheckedChange={(v) => setF({ ...f, accept_terms: !!v })} data-testid="signup-terms-checkbox" />
           <span>I agree to the <Link to="/terms-and-conditions" className="text-[#00B4D8]">Terms</Link> and <Link to="/privacy-policy" className="text-[#00B4D8]">Privacy Policy</Link>. Players under 18 need guardian consent before uploading videos.</span></label>
