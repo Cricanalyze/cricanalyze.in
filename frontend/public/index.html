@@ -27,6 +27,13 @@
     </head>
     <body>
         <noscript>You need to enable JavaScript to run this app.</noscript>
+        <div id="preloader" style="position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:#070D1E;transition:opacity .45s ease,visibility .45s">
+          <style>@keyframes plPulse{0%,100%{transform:scale(.92);opacity:.75}50%{transform:scale(1.04);opacity:1}}@keyframes plSpin{to{transform:rotate(360deg)}}</style>
+          <div style="position:relative;width:150px;height:150px;display:grid;place-items:center">
+            <div style="position:absolute;inset:0;border-radius:50%;border:3px solid rgba(16,185,129,.15);border-top-color:#10B981;animation:plSpin 1s linear infinite"></div>
+            <img src="/logo.png" alt="CricAnalyze" style="width:96px;border-radius:16px;background:#fff;padding:6px;animation:plPulse 1.4s ease-in-out infinite" />
+          </div>
+        </div>
         <div id="root"></div>
         <!--
       This HTML file is a template.

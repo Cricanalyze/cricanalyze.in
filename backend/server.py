@@ -1,116 +1,108 @@
-import asyncio
-from contextlib import suppress
-from fastapi import FastAPI, APIRouter, Query
-from dotenv import load_dotenv
+import os, asyncio
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo import ASCENDING, DESCENDING, IndexModel
-import os
-import logging
-from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict
-from typing import List
-import uuid
-from datetime import datetime, timezone
+from core import db, log, init_storage, sanitize_error
+import auth_routes, analysis_routes, billing_routes, coach_routes, academy_routes, blog_routes, admin_routes, admin_extra_routes, key_pool, maintenance
+
+app = FastAPI(title="CricAnalyze API", version="1.0", docs_url="/api/docs", openapi_url="/api/openapi.json")
+for m in (auth_routes, analysis_routes, billing_routes, coach_routes, academy_routes, blog_routes, admin_routes, admin_extra_routes, maintenance):
+    app.include_router(m.router)
+
+CSRF_EXEMPT = {"/api/billing/webhook", "/api/auth/login", "/api/auth/signup", "/api/auth/verify-email", "/api/auth/login/otp/verify",
+               "/api/auth/login/otp/request", "/api/auth/forgot", "/api/auth/reset/verify", "/api/auth/reset", "/api/auth/resend", "/api/contact"}
 
 
-ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
-
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
-
-# One entry per collection: every field a route filters, sorts or dedupes on. Add the index in the same edit as the query.
-INDEXES: dict[str, list[IndexModel]] = {
-    "status_checks": [
-        IndexModel([("id", ASCENDING)], name="id", unique=True),
-        IndexModel([("timestamp", DESCENDING)], name="timestamp_desc"),
-    ],
-}
-
-
-async def ensure_indexes() -> None:
-    for collection, models in INDEXES.items():
-        for model in models:  # one at a time so a bad spec skips only itself
-            try:
-                await db[collection].create_indexes([model])
-            except Exception as exc:  # never block boot on an index; the log line names what to fix
-                logging.getLogger(__name__).error("ensure_indexes(%s.%s): %s", collection, model.document["name"], exc)
-
-# Create the main app without a prefix
-app = FastAPI()
-
-# Create a router with the /api prefix
-api_router = APIRouter(prefix="/api")
+@app.middleware("http")
+async def security(request: Request, call_next):
+    if request.method in ("POST", "PUT", "PATCH", "DELETE") and request.url.path.startswith("/api") \
+            and request.url.path not in CSRF_EXEMPT and request.cookies.get("ca_session"):
+        tok = request.headers.get("x-csrf-token")
+        if not tok or tok != request.cookies.get("ca_csrf"):
+            return JSONResponse({"detail": "Security check failed. Please refresh the page and try again."}, status_code=403)
+    blocked = await maintenance.gate(request)
+    if blocked:
+        return blocked
+    resp = await call_next(request)
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    if request.url.path.startswith("/api") and not request.url.path.startswith(("/api/sitemap", "/api/blog/images")):
+        resp.headers.setdefault("X-Robots-Tag", "noindex")
+    return resp
 
 
-# Define Models
-class StatusCheck(BaseModel):
-    model_config = ConfigDict(extra="ignore")  # Ignore MongoDB's _id field
-    
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+@app.exception_handler(RequestValidationError)
+async def validation_handler(request, exc):
+    errs = exc.errors()
+    msg = "; ".join(f"{'.'.join(str(x) for x in e['loc'][1:])}: {e['msg']}" for e in errs[:3])
+    return JSONResponse({"detail": msg or "Invalid input."}, status_code=422)
 
-class StatusCheckCreate(BaseModel):
-    client_name: str
 
-# Add your routes to the router instead of directly to app
-@api_router.get("/")
-async def root():
-    return {"message": "Hello World"}
+@app.exception_handler(Exception)
+async def unhandled(request, exc):
+    log.error(f"unhandled {request.url.path} {sanitize_error(exc)}")
+    return JSONResponse({"detail": "Something went wrong on our side. Please try again."}, status_code=500)
 
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.model_dump()
-    status_obj = StatusCheck(**status_dict)
-    
-    # Convert to dict and serialize datetime to ISO string for MongoDB
-    doc = status_obj.model_dump()
-    doc['timestamp'] = doc['timestamp'].isoformat()
-    
-    _ = await db.status_checks.insert_one(doc)
-    return status_obj
 
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks(limit: int = Query(20, ge=1, le=100)):
-    # Exclude MongoDB's _id field from the query results
-    status_checks = await db.status_checks.find({}, {"_id": 0}).sort("timestamp", -1).limit(limit).to_list(limit)
-    
-    # Convert ISO string timestamps back to datetime objects
-    for check in status_checks:
-        if isinstance(check['timestamp'], str):
-            check['timestamp'] = datetime.fromisoformat(check['timestamp'])
-    
-    return status_checks
+app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),
+                   allow_methods=["*"], allow_headers=["*"])
 
-# Include the router in the main app
-app.include_router(api_router)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+async def ensure_indexes():
+    await db.users.create_index("email", unique=True)
+    await db.users.create_index("id", unique=True)
+    await db.sessions.create_index("token_hash", unique=True)
+    await db.sessions.create_index("expires_at", expireAfterSeconds=0)
+    await db.email_verifications.create_index([("email", 1), ("purpose", 1), ("created_at", -1)])
+    await db.email_verifications.create_index("expires_at", expireAfterSeconds=86400)
+    await db.password_reset_tokens.create_index("token_hash", unique=True)
+    await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=86400)
+    await db.rate_limits.create_index("exp", expireAfterSeconds=0)
+    await db.analysis_jobs.create_index([("user_id", 1), ("idempotency_key", 1)], unique=True)
+    await db.analysis_jobs.create_index([("status", 1), ("next_run_at", 1)])
+    await db.analysis_reports.create_index([("user_id", 1), ("analysis_type", 1), ("created_at", -1)])
+    await db.subscriptions.create_index([("user_id", 1), ("status", 1), ("expires_at", 1)])
+    await db.payments.create_index("order_id", unique=True)
+    await db.plans.create_index("slug", unique=True)
+    await db.coupons.create_index("code", unique=True)
+    await db.blog_posts.create_index("slug", unique=True)
+    await db.blog_posts.create_index([("status", 1), ("published_at", -1)])
+    await db.blog_redirects.create_index("from_slug", unique=True)
+    await db.academy_memberships.create_index([("academy_id", 1), ("user_id", 1)], unique=True)
+    await db.coach_assignments.create_index([("academy_id", 1), ("coach_id", 1), ("player_id", 1)], unique=True)
+    await db.training_completions.create_index([("user_id", 1), ("plan_id", 1), ("item_id", 1)], unique=True)
+    await db.passport_shares.create_index("token_hash", unique=True)
+    await db.audit_logs.create_index("created_at")
+    await db.academies.create_index("code", unique=True, sparse=True)
+    await db.academy_join_requests.create_index([("academy_id", 1), ("status", 1)])
+    await db.commissions.create_index("payment_id", unique=True)
+    await db.commissions.create_index([("academy_id", 1), ("created_at", -1)])
+    await db.report_schedules.create_index([("status", 1), ("send_at", 1)])
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+
+async def scheduler_loop():
+    while True:
+        try:
+            await blog_routes.publish_due()
+            await billing_routes.expire_subscriptions()
+            await analysis_routes.send_due_reports()
+            await key_pool.refresh(db)
+        except Exception as e:
+            log.error(f"scheduler error {sanitize_error(e)}")
+        await asyncio.sleep(30)
+
 
 @app.on_event("startup")
-async def start_index_build():
-    app.state.index_task = asyncio.create_task(ensure_indexes())  # background: a big index build must not block boot
-
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    app.state.index_task.cancel()  # stop a build still running before its client closes
-    with suppress(asyncio.CancelledError):
-        await app.state.index_task
-    client.close()
+async def startup():
+    await ensure_indexes()
+    await billing_routes.seed_plans()
+    await academy_routes.ensure_codes()
+    await key_pool.refresh(db)
+    await blog_routes.seed_blog()
+    try:
+        await asyncio.to_thread(init_storage)
+    except Exception as e:
+        log.error(f"storage init failed {sanitize_error(e)}")
+    asyncio.create_task(analysis_routes.worker_loop())
+    asyncio.create_task(scheduler_loop())

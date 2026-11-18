@@ -1,56 +1,72 @@
-import { useEffect } from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
-import { HOME } from "@/constants/testIds";
+import { HelmetProvider } from "react-helmet-async";
+import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider, Protected, isStaff, isEditor } from "@/context/AuthContext";
+import { PublicLayout, AppLayout } from "@/components/Layouts";
+import SharedReport from "@/pages/SharedReport";
+import { Home, Features, HowItWorks, Pricing, About, Faq, Contact, Legal, NotFound } from "@/pages/Public";
+import { BlogList, BlogPost, SharedPassport } from "@/pages/Blog";
+import { Login, Signup, VerifyEmail, ForgotPassword, ResetPassword } from "@/pages/Auth";
+import { Dashboard, Upload, Analyses, Report } from "@/pages/AppMain";
+import { Coach, Training, Passport } from "@/pages/AppTools";
+import { Academy, Billing, Settings } from "@/pages/AppAccount";
+import Admin from "@/pages/Admin";
+import AdminBlog from "@/pages/AdminBlog";
+import { MaintenanceGate } from "@/components/Maintenance";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
-
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
-
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
-
-  return (
-    // The marker attribute below lets the platform probe detect the stock splash — remove it with this page
-    <div data-emergent-splash>
-      <header className="App-header">
-        <a
-          data-testid={HOME.emergentLink}
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
-  );
-};
+const LEGAL = ["privacy-policy", "terms-and-conditions", "refund-policy", "cookie-policy", "disclaimer"];
 
 function App() {
   return (
-    <div className="App">
+    <HelmetProvider>
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
-        </Routes>
+        <AuthProvider>
+          <MaintenanceGate>
+          <Routes>
+            <Route path="/r/:token" element={<SharedReport />} />
+            <Route element={<PublicLayout />}>
+              <Route path="/" element={<Home />} />
+              <Route path="/features" element={<Features />} />
+              <Route path="/how-it-works" element={<HowItWorks />} />
+              <Route path="/pricing" element={<Pricing />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/faq" element={<Faq />} />
+              <Route path="/contact" element={<Contact />} />
+              {LEGAL.map((s) => <Route key={s} path={`/${s}`} element={<Legal slug={s} />} />)}
+              <Route path="/blog" element={<BlogList />} />
+              <Route path="/blog/category/:slug" element={<BlogList kind="category" />} />
+              <Route path="/blog/tag/:slug" element={<BlogList kind="tag" />} />
+              <Route path="/blog/author/:slug" element={<BlogList kind="author" />} />
+              <Route path="/blog/:slug" element={<BlogPost />} />
+              <Route path="/passport/:token" element={<SharedPassport />} />
+              <Route path="*" element={<NotFound />} />
+            </Route>
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route element={<Protected><AppLayout /></Protected>}>
+              <Route path="/app" element={<Dashboard />} />
+              <Route path="/app/upload" element={<Upload />} />
+              <Route path="/app/analyses" element={<Analyses />} />
+              <Route path="/app/analyses/:id" element={<Report />} />
+              <Route path="/app/coach" element={<Coach />} />
+              <Route path="/app/training" element={<Training />} />
+              <Route path="/app/academy" element={<Academy />} />
+              <Route path="/app/passport" element={<Passport />} />
+              <Route path="/app/billing" element={<Billing />} />
+              <Route path="/app/settings" element={<Settings />} />
+              <Route path="/admin" element={<Protected check={isStaff}><Admin /></Protected>} />
+              <Route path="/admin/blog" element={<Protected check={isEditor}><AdminBlog /></Protected>} />
+            </Route>
+          </Routes>
+          </MaintenanceGate>
+          <Toaster richColors position="top-right" />
+        </AuthProvider>
       </BrowserRouter>
-    </div>
+    </HelmetProvider>
   );
 }
 

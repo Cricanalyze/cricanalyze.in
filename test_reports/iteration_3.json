@@ -1,0 +1,37 @@
+{
+  "summary": "Quick smoke test of the CricAnalyze repo (branch 'third'), run as-is with no app code changes. Backend: 13/13 pytest smoke tests pass. Frontend: the public pages (/, /blog, /pricing, /features) and /login and /signup load with no JS page errors. The full UI flow works end to end: signup, verify-email page, OTP read from Mongo dev_outbox, verify, auto-login to /app, clear cookies, password login, /app dashboard. /app/billing, /app/upload and /app/coach render. Endpoints that need missing credentials fail gracefully, as expected.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/billing/order", "issue": "Expected: RAZORPAY_KEY_ID/SECRET are missing, so it returns 503 'Payments are not configured yet'. The webhook also needs RAZORPAY_WEBHOOK_SECRET. No plan can be bought, so every paid feature (analysis, AI coach, PDF) is locked for new users."},
+      {"endpoint": "GET /api/health", "issue": "Returns status ok with smtp_configured:false. SMTP_* is missing, so any non-@example.com address gets 503 'We couldn't send the email' on signup, forgot password or OTP. Only @example.com works, through dev_outbox."},
+      {"endpoint": "AI features (POST /api/coach/chat, analysis worker, admin AI test)", "issue": "core.py sets AI_KEY = ANTHROPIC_API_KEY, and LlmChat uses AI_KEY. It does NOT fall back to EMERGENT_LLM_KEY, which is only used for object storage init. Even with a plan, coach/analysis LLM calls will fail until ANTHROPIC_API_KEY is set. AI_MODEL defaults to 'claude-sonnet-5-5'; check that this model id is valid. Not exercised: test user has no plan, so coach/chat returns 402."},
+      {"endpoint": "Pose/ball pipelines (ultralytics_client)", "issue": "ULTRALYTICS_API_KEY is missing. Pose and ball detection through Ultralytics are unavailable. Not exercised: no entitlement to start an analysis."},
+      {"endpoint": "POST /api/auth/login (unverified user)", "issue": "Right after signup, login for an unverified account returns 429 'Please wait 60 seconds' (OTP cooldown hit while re-issuing) instead of 403 email_unverified. Minor UX quirk."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/blog", "issues": ["No blog posts are seeded, only categories and an author, so the blog list is empty"]},
+      {"screen": "/app/upload", "issues": ["The page says 'Up to 1 video(s) of any length, 100 MB max' even when the user has no active plan (entitlements are all 0). Minor wording."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_smoke_asis_run.py", "/app/test_reports/pytest/pytest_smoke.xml"],
+  "action_items": [
+    "Tell the user which env keys are needed for full functionality: SMTP_HOST/PORT/USER/PASS/FROM_EMAIL, RAZORPAY_KEY_ID/KEY_SECRET/WEBHOOK_SECRET, ULTRALYTICS_API_KEY, ANTHROPIC_API_KEY. EMERGENT_LLM_KEY is NOT used for the LLM, only for storage.",
+    "No code changes requested (as-is run)"
+  ],
+  "critical_code_review_comments": [
+    "The LLM path is hardwired to ANTHROPIC_API_KEY (core.py AI_KEY) and does not use EMERGENT_LLM_KEY",
+    "pytest.ini forces -n 2, so run serially with -n 0. Existing conftest.py imports cv2."
+  ],
+  "updated_files": ["/app/backend/tests/test_smoke_asis_run.py"],
+  "success_rate": {"backend": "100% (13/13 smoke)", "frontend": "100% of smoke flows"},
+  "test_credentials": "/app/memory/test_credentials.md is empty (header only). Test users were created on the fly and then deleted.",
+  "seed_data_creation": "Created test_smoke_*@example.com and test_ui_*@example.com users and one support_ticket. Deleted afterwards by exact email/id, along with their sessions, dev_outbox and email_verifications records.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "OTP for @example.com is in db.dev_outbox (field code, template verify_email). The browser automation env has no pymongo, so fetch the code via bash between scripts. Run pytest with -n 0. To test paid features, grant a plan through admin /api/admin/grant (needs a super_admin; ADMIN_EMAIL is cricanalyze.in@gmail.com, which cannot receive OTP without SMTP)."
+}

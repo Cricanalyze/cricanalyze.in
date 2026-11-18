@@ -1,0 +1,27 @@
+{
+  "summary": "Frontend retest of the 4 fixes from iteration_4. PASS (3/4): (1) Upload demo gate: setting currentTime=duration does not unlock it (currentTime is snapped back, 59% watched, no dropzone); setting playbackRate=16 is reset to 1 with no unlock; normal playback (4.04s) unlocks the dropzone and sets localStorage demo_watched={batting:true}. (2) Admin > Maintenance: after Save schedule (2027-01-10 10:00 to 12:30 IST, enabled, custom message) the form keeps every value and the badge shows Scheduled; the values persist after a reload; End / cancel now sets the badge to Off, the switch to unchecked and hides the end-now button. (3) MaintenanceGate on: a logged-in player sees maintenance-page on /app and /app/upload with the custom message and a 'Back online by' time; no pageerror or unhandled rejection; no error overlay. Anonymous / shows maintenance-page. Toggled off: GET /api/plans returns 200 and /api/maintenance returns active=false. FAIL (1/4): (4) the homepage mobile copy is NOT fixed. HomeSections.jsx line 183 still says 'Scroll to pull the report apart: ...' and 'Every report has four layers:' is not on the page at 390px.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "HomeSections.jsx 'Inside every report' copy", "issue": "The fix was not applied. The paragraph (line 183) still reads 'Scroll to pull the report apart: your clip, the tracked skeleton, the measured numbers and the coaching you actually use.' at all breakpoints. Expected 'Every report has four layers:' on mobile. Suggested fix: show '<span className=\"lg:hidden\">Every report has four layers:</span><span className=\"hidden lg:inline\">Scroll to pull the report apart:</span> your clip, ...'", "selector": "section 'Inside every report' p.text-slate-400", "priority": "MEDIUM"},
+      {"component": "AppMain.jsx DemoVideo", "issue": "Minor, needs a script: forward seeks of 1s or less are each accepted (onSeeking/onTimeUpdate allow up to maxT+1, then maxT moves up). A loop of currentTime += 0.9 on a paused video reached the end, and the dropzone unlocked without real playback. It is not practical with the scrubber. Optional hardening: allow currentTime <= maxT + 0.3 only, or track real watched time from timeupdate deltas while !paused.", "selector": "[data-testid='demo-video']", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/maint_toggle.py"],
+  "action_items": [
+    "HomeSections.jsx line 183: change the mobile copy to 'Every report has four layers:' and drop the scroll wording on mobile (or everywhere)",
+    "Optional: tighten the DemoVideo seek tolerance (currently maxT+1) so repeated small seeks cannot skip the demo"
+  ],
+  "critical_code_review_comments": [
+    "MaintenanceGate now renders a blank screen while m === null, which works. If /api/maintenance fails, the catch falls back to {active:false}, so the site opens. That is acceptable.",
+    "During maintenance, AuthContext still calls /api/* endpoints that return 503 (these show only as console network errors, not unhandled rejections). It would be cleaner to skip those calls while maintenance is active."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "skipped", "frontend": "75% (3/4 fixes verified)"},
+  "seed_data_creation": "None. The admin maintenance schedule was set temporarily and then ended. maint_toggle.py on/off was run, and maintenance was left OFF (enabled=false, message reset to the default).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Only the homepage mobile copy fix remains to verify (390px: 'Every report has four layers:', no scroll wording). Login testids: login-email-input, login-password-input, login-submit-btn. Upload type buttons: type-batting-btn / type-bowling-btn. The demo video is 4.04s long. The admin tab is admin-tab-maintenance. Always run maint_toggle.py off at the end."
+}
