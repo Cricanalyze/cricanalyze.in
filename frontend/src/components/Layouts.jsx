@@ -52,9 +52,9 @@ const Footer = () => (
         {[["Privacy Policy", "/privacy-policy"], ["Terms & Conditions", "/terms-and-conditions"], ["Refund Policy", "/refund-policy"], ["Cookie Policy", "/cookie-policy"], ["Disclaimer", "/disclaimer"]].map(([l, h]) => <li key={h}><Link className="hover:text-white" to={h}>{l}</Link></li>)}</ul></div>
       <div><h3 className="font-semibold mb-3">Company</h3><ul className="space-y-2 text-slate-400">
         <li><Link className="hover:text-white" to="/about">About</Link></li><li><Link className="hover:text-white" to="/contact">Contact</Link></li>
-        <li><a href="https://biatpl.com" target="_blank" rel="noopener noreferrer" className="hover:text-white" data-testid="footer-company-link">Buddy Innovations and Technologies Pvt Ltd</a></li><li>cricanalyze.in</li></ul></div>
+        <li><a href="https://biatpl.com" target="_blank" rel="noopener noreferrer" className="hover:text-white" data-testid="footer-company-link">Buddy Innovations and Technologies Private Limited</a></li><li>cricanalyze.in</li></ul></div>
     </div>
-    <div className="text-center text-xs text-slate-500 pb-8">© {new Date().getFullYear()} Buddy Innovations and Technologies Pvt Ltd. All rights reserved.</div>
+    <div className="text-center text-xs text-slate-500 pb-8">© {new Date().getFullYear()} Buddy Innovations and Technologies Private Limited. All rights reserved.</div>
   </footer>
 );
 

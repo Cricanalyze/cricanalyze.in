@@ -197,12 +197,12 @@ def render_email(template: str, ctx: dict):
     subject = subject.format(**ctx) if "{" in subject else subject
     body = body.format(**ctx)
     code = ctx.get("code") if has_code else None
-    text = f"{title}\n\n{body}\n\n" + (f"Code: {code}\n\n" if code else "") + "— CricAnalyze, Buddy Innovations and Technologies Pvt Ltd\nhttps://cricanalyze.in"
+    text = f"{title}\n\n{body}\n\n" + (f"Code: {code}\n\n" if code else "") + "— CricAnalyze, Buddy Innovations and Technologies Private Limited\nhttps://cricanalyze.in"
     code_html = f'<div style="font:700 32px monospace;letter-spacing:8px;color:#0B132B;background:#E6FAF4;padding:16px;text-align:center;border-radius:8px">{code}</div>' if code else ""
     html = f"""<div style="background:#f4f7fb;padding:24px;font-family:Arial,sans-serif"><div style="max-width:520px;margin:auto;background:#fff;border-radius:12px;overflow:hidden">
 <div style="background:#0B132B;padding:18px 24px;color:#fff;font-weight:800;font-size:20px">Cric<span style="color:#10B981">Analyze</span></div>
 <div style="padding:24px;color:#1C2541"><h2 style="margin:0 0 12px">{htmllib.escape(title)}</h2><p style="line-height:1.6">{htmllib.escape(body)}</p>{code_html}</div>
-<div style="padding:16px 24px;font-size:12px;color:#64748b;border-top:1px solid #e2e8f0">Buddy Innovations and Technologies Pvt Ltd · cricanalyze.in<br>Never share this code. CricAnalyze will never ask for your password.</div></div></div>"""
+<div style="padding:16px 24px;font-size:12px;color:#64748b;border-top:1px solid #e2e8f0">Buddy Innovations and Technologies Private Limited · cricanalyze.in<br>Never share this code. CricAnalyze will never ask for your password.</div></div></div>"""
     return subject, html, text
 
 

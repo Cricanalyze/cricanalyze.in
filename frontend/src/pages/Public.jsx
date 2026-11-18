@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import AboutPage from "@/pages/AboutPage";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowRight, Video, Brain, FileText, LineChart, Users, ShieldCheck, Target, Layers, CheckCircle2, Lock } from "lucide-react";
+import { ArrowRight, Video, Brain, FileText, LineChart, Users, ShieldCheck, Target, Layers, CheckCircle2 } from "lucide-react";
+import { LEGAL, LEGAL_UPDATED, COMPANY } from "@/constants/legal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,7 +15,7 @@ import { SampleReport, Measures, FilmingGuide, AcademySection, Journey, Marquee3
 import { useAuth } from "@/context/AuthContext";
 import { PostCard } from "@/pages/Blog";
 
-const ORG = { "@context": "https://schema.org", "@type": "Organization", name: "CricAnalyze", legalName: "Buddy Innovations and Technologies Pvt Ltd", url: SITE, email: "noreply@cricanalyze.in" };
+const ORG = { "@context": "https://schema.org", "@type": "Organization", name: "CricAnalyze", legalName: "Buddy Innovations and Technologies Private Limited", url: SITE, email: "noreply@cricanalyze.in" };
 const WEBSITE = { "@context": "https://schema.org", "@type": "WebSite", name: "CricAnalyze", url: SITE };
 const Section = ({ children, className = "" }) => <section data-s3d className={`sec-3d max-w-7xl mx-auto px-4 sm:px-6 py-16 md:py-24 ${className}`}>{children}</section>;
 const H2 = ({ eyebrow, title, desc, h1 }) => { const H = h1 ? "h1" : "h2"; return (<div className="mb-12 max-w-2xl"><div className="eyebrow mb-3">{eyebrow}</div><H className="text-3xl sm:text-4xl font-bold">{title}</H>{desc && <p className="text-slate-400 mt-3">{desc}</p>}</div>); };
@@ -180,30 +181,15 @@ export const Contact = () => {
       </form></Section></>);
 };
 
-const LEGAL = {
-  "privacy-policy": ["Privacy Policy", ["What we collect: name, verified email, optional phone, optional profile details, date of birth only when needed for age-appropriate handling, guardian contact for minors, uploaded videos, generated reports, payment references (never card details), and basic technical logs.",
-    "Why: to provide analysis, reports, billing, security and support. Videos are processed by a hosted AI provider solely to generate your report.",
-    "Minors: players under 18 must have verified guardian consent before uploading or sharing videos. Leaderboards are opt-in and never show minors' personal details.",
-    "Sharing: we don't sell personal data. Reports are shared with an academy or coach only after you turn sharing on. Service providers (hosting, storage, email, payments, AI) process data on our behalf.",
-    "Retention & rights: you can export your data or delete your account at any time from Settings. Contact us via the Contact page for other requests."]],
-  "terms-and-conditions": ["Terms & Conditions", ["CricAnalyze is operated by Buddy Innovations and Technologies Pvt Ltd. By creating an account you agree to these terms.",
-    "You must only upload videos you have the right to upload, and obtain consent from anyone identifiable in them.", "Analysis results are AI-assisted coaching observations, not professional, medical or selection assessments.",
-    "Credits and plan limits apply as shown at purchase. Misuse, abuse or attempts to bypass limits may lead to suspension.", "We may update these terms; material changes will be notified by email."]],
-  "refund-policy": ["Refund Policy", ["Credits reserved for an analysis that fails are refunded to your plan automatically.", "Payment refund requests can be sent via the Contact page; eligibility is reviewed case by case by the CricAnalyze team.",
-    "Approved refunds are processed through Razorpay to the original payment method; timelines depend on your bank."]],
-  "cookie-policy": ["Cookie Policy", ["We use essential cookies only: a secure, HTTP-only session cookie to keep you signed in and a security token cookie to protect forms.",
-    "Analytics cookies (Google Analytics) will be used only once configured, and this policy will be updated accordingly."]],
-  disclaimer: ["Disclaimer", ["CricAnalyze provides AI-assisted technique observations from sampled video frames. Accuracy depends on camera angle, lighting, resolution and occlusion.",
-    "It does not diagnose injuries, guarantee performance improvement or injury prevention, or provide official selection credentials. Consult a qualified coach or medical professional where appropriate."]],
-};
 export const Legal = ({ slug }) => {
   const params = useParams();
-  const [title, paras] = LEGAL[slug || params.slug] || LEGAL.disclaimer;
-  return (<><Seo title={title} path={`/${slug}`} description={`${title} for CricAnalyze.`} />
-    <Section className="max-w-3xl"><div className="eyebrow mb-3">Legal</div><h1 className="text-4xl font-bold mb-4">{title}</h1>
-      <div className="flex gap-2 items-start text-xs text-amber-300 bg-amber-500/10 rounded-lg p-3 mb-8"><Lock size={14} className="mt-0.5" />Draft prepared for owner review. Not yet reviewed by a qualified legal professional.</div>
-      <div className="space-y-4 text-slate-300 leading-relaxed">{paras.map((p) => <p key={p}>{p}</p>)}</div>
-      <p className="text-sm text-slate-500 mt-10">Buddy Innovations and Technologies Pvt Ltd · cricanalyze.in</p></Section></>);
+  const [title, sections] = LEGAL[slug || params.slug] || LEGAL.disclaimer;
+  return (<><Seo title={title} path={`/${slug}`} description={`${title} for CricAnalyze, a product of ${COMPANY}.`} />
+    <Section className="max-w-3xl"><div className="eyebrow mb-3">Legal</div><h1 className="text-4xl font-bold mb-3" data-testid="legal-title">{title}</h1>
+      <p className="text-sm text-slate-400 mb-10" data-testid="legal-updated">Last updated: {LEGAL_UPDATED}</p>
+      <div className="space-y-8 text-slate-300 leading-relaxed" data-testid="legal-content">{sections.map(([h, paras]) => (
+        <section key={h}><h2 className="text-lg font-semibold text-white mb-2">{h}</h2><div className="space-y-2">{paras.map((p) => <p key={p}>{p}</p>)}</div></section>))}</div>
+      <p className="text-sm text-slate-500 mt-12" data-testid="legal-company">CricAnalyze is a product of {COMPANY} · cricanalyze.in</p></Section></>);
 };
 
 export const NotFound = () => (<><Seo title="Page not found" path="/404" noindex /><Section className="text-center"><div className="font-mono text-[#00B4D8]">404</div><h1 className="text-4xl font-bold mt-2">This page isn't here</h1>

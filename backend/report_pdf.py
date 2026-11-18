@@ -133,7 +133,7 @@ def _page(title, rep_id, generated, v):
         c.line(M, 30, W - M, 30)
         c.setFont("Helvetica", 7.5)
         c.setFillColor(MUTED)
-        c.drawString(M, 18, f"CricAnalyze - Buddy Innovations and Technologies Pvt Ltd - cricanalyze.in   |   Generated {generated}")
+        c.drawString(M, 18, f"CricAnalyze - Buddy Innovations and Technologies Private Limited - cricanalyze.in   |   Generated {generated}")
         c.drawRightString(W - M, 18, f"Report {rep_id[:8].upper()} - v{PDF_VERSION} - Page {doc.page}")
         c.restoreState()
     return draw
