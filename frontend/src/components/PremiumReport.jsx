@@ -164,6 +164,7 @@ export const PremiumReport = ({ r }) => {
       <Coaching c={v.coaching} />
       {v.drills.length > 0 && <Drills v={v} />}
       <Progress p={v.progress} />
+      {v.compare_note && <Card data-testid="compare-note"><H icon={TrendingUp}>Progress comparison</H><p className="text-sm text-slate-300">{v.compare_note}</p></Card>}
       <ActionPlan v={v} />
       <About v={v} />
       <Diagnostics d={v.diagnostics} />

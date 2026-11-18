@@ -114,6 +114,7 @@ export const Upload = () => {
   const [notes, setNotes] = useState("");
   const [shot, setShot] = useState("");
   const [emailMode, setEmailMode] = useState("now");
+  const [compare, setCompare] = useState(true);
   const [emailAt, setEmailAt] = useState("");
   const [busy, setBusy] = useState(false);
   const [drag, setDrag] = useState(false);
@@ -123,6 +124,7 @@ export const Upload = () => {
   const staff = isStaff(user);
   const maxVideos = staff ? 3 : ent?.videos_per_analysis || 1;
   const allowed = staff ? ["batting", "bowling"] : ent?.analysis_types || [];
+  const canCompare = staff || !!ent?.comparisons;
   const add = async (files) => {
     const picked = [...files].filter((x) => x.type.startsWith("video/") || /\.(mp4|mov|webm)$/i.test(x.name));
     if (!picked.length) return toast.error("Please choose an MP4, MOV or WEBM video.");
@@ -144,7 +146,7 @@ export const Upload = () => {
         const { data } = await api.post("/videos", fd, { onUploadProgress: (e) => setItems((s) => s.map((x, j) => j === i ? { ...x, progress: Math.round((e.loaded / (e.total || 1)) * 100) } : x)) });
         ids.push(data.id);
       }
-      const { data: job } = await api.post("/analyses", { analysis_type: type, video_ids: ids, consent, idempotency_key: key.current, notes: notes || null, shot_type: shot || null, email_at: emailMode === "later" && emailAt ? emailAt : null });
+      const { data: job } = await api.post("/analyses", { analysis_type: type, video_ids: ids, consent, idempotency_key: key.current, notes: notes || null, shot_type: shot || null, email_at: emailMode === "later" && emailAt ? emailAt : null, compare_previous: canCompare && compare });
       toast.success("Upload complete. Analysis queued.");
       nav(`/app/analyses/${job.id}`);
     } catch (e) {
@@ -190,6 +192,9 @@ export const Upload = () => {
               className={`flex-1 text-xs py-2 rounded-lg border ${emailMode === v ? "border-[#10B981] bg-[#10B981]/10" : "border-white/10"}`}>{l}</button>)}</div>
             {emailMode === "later" && <Input type="datetime-local" className="mt-2" value={emailAt} onChange={(e) => setEmailAt(e.target.value)} data-testid="email-at-input" />}
             <p className="text-[11px] text-slate-500 mt-1">Times are India time (IST).</p></Card>
+          {canCompare ? <Card className="p-4" data-testid="compare-option-card"><label className="flex gap-2 items-start text-sm"><Checkbox checked={compare} onCheckedChange={(v) => setCompare(!!v)} data-testid="compare-previous-checkbox" />
+            <span><b>Compare with my last {type} report?</b><span className="block text-xs text-slate-400 mt-0.5">Your new report will show what changed since your previous {type} video from the same camera angle.</span></span></label></Card>
+            : <p className="text-xs text-slate-500" data-testid="compare-not-in-plan">Comparing with your last report isn't included in your plan.</p>}
           <label className="flex gap-2 items-start text-sm"><Checkbox checked={consent} onCheckedChange={(v) => setConsent(!!v)} data-testid="consent-checkbox" />
             <span>I own this video or have permission from everyone in it, and I consent to it being processed by a hosted AI provider to create my report.</span></label>
           <Button className="w-full bg-[#10B981] hover:bg-[#059669] text-[#0B132B]" disabled={!items.length || !consent || busy || (emailMode === "later" && !emailAt)} onClick={start} data-testid="start-analysis-btn">

@@ -196,6 +196,7 @@ class AnalysisIn(BaseModel):
     notes: Optional[str] = Field(None, max_length=300)
     shot_type: Optional[str] = Field(None, max_length=60)
     email_at: Optional[str] = Field(None, max_length=40)
+    compare_previous: bool = False
 
 
 def parse_when(v):
@@ -262,7 +263,7 @@ async def create_analysis(body: AnalysisIn, request: Request, u=Depends(current_
     level = (sub["plan_snapshot"].get("report_level") if sub else "advanced") or "basic"
     job = {"id": job_id, "user_id": u["id"], "analysis_type": body.analysis_type, "video_ids": [v["id"] for v in vids],
            "idempotency_key": body.idempotency_key, "status": "queued", "attempts": 0, "progress": 0, "report_level": level,
-           "subscription_id": sub["id"] if sub else None, "credit_state": "reserved" if sub else "none", "notes": body.notes, "shot_type": body.shot_type, "email_at": email_at,
+           "subscription_id": sub["id"] if sub else None, "credit_state": "reserved" if sub else "none", "notes": body.notes, "shot_type": body.shot_type, "email_at": email_at, "compare_previous": body.compare_previous,
            "consent_at": now(), "created_at": now(), "updated_at": now(), "next_run_at": now()}
     try:
         await db.analysis_jobs.insert_one(job)
@@ -363,8 +364,13 @@ async def history_for(rep):
 
 async def attach_view(u, job, rep):
     owner = await db.users.find_one({"id": job["user_id"]}, {"full_name": 1})
-    hist = await history_for(rep) if job.get("report_level") != "basic" or u["role"] in STAFF else None
+    want = job.get("compare_previous", job.get("report_level") != "basic")
+    allowed = u["role"] in STAFF or (await entitlements(job["user_id"]))["comparisons"]
+    hist = await history_for(rep) if want and allowed else None
     rep["view"] = report_view.build(rep, (owner or {}).get("full_name"), hist, u["role"] in STAFF)
+    if want and allowed and not hist:
+        rep["view"]["compare_note"] = (f"You asked to compare with your last {job['analysis_type']} report, but there's no earlier {job['analysis_type']} report from the same "
+                                       "camera angle yet. This report is now your baseline — the next one will be compared with it.")
     rep["view"]["header"]["date"] = report_view.ist(job["created_at"])
     return rep
 
