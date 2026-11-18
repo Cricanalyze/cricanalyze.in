@@ -1,15 +1,26 @@
-import time
+import time, asyncio, logging
 from datetime import timezone
 from typing import Optional
 from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-from core import db, now, audit, ADMIN, STAFF, session_from_request
+from core import db, now, audit, ADMIN, STAFF, session_from_request, send_email
+from report_view import ist
 from analysis_routes import parse_when
 
 router = APIRouter(prefix="/api")
 OPEN = ("/api/maintenance", "/api/auth/", "/api/billing/webhook")
 _cache = {"at": 0.0, "doc": None}
+log = logging.getLogger("cricanalyze")
+
+
+async def notify_users(start, end, message):
+    ctx = {"start": ist(start), "end": ist(end), "message": message or "Thank you for your patience."}
+    sent = 0
+    async for u in db.users.find({"email_verified": True, "status": "active"}, {"_id": 0, "id": 1, "email": 1}):
+        sent += bool(await send_email(u["email"], "maintenance", ctx, u["id"]))
+        await asyncio.sleep(0.5)
+    log.info(f"maintenance notice sent to {sent} users")
 
 
 async def _doc():
@@ -70,8 +81,13 @@ async def save(body: MaintIn, request: Request, a=Depends(ADMIN)):
     e = parse_when(body.end_at) if body.end_at else None
     if body.enabled and (not s or not e or e <= s):
         raise HTTPException(422, "Set a start time and an end time after it.")
-    doc = {"enabled": body.enabled, "start_at": s, "end_at": e, "message": (body.message or "").strip() or None, "updated_at": now(), "updated_by": a["id"]}
+    prev = await db.settings.find_one({"_id": "maintenance"}) or {}
+    msg = (body.message or "").strip() or None
+    notify = body.enabled and e > now() and (not prev.get("enabled") or prev.get("start_at") != s or prev.get("end_at") != e)
+    doc = {"enabled": body.enabled, "start_at": s, "end_at": e, "message": msg, "updated_at": now(), "updated_by": a["id"]}
     await db.settings.update_one({"_id": "maintenance"}, {"$set": doc}, upsert=True)
     _cache["at"] = 0
+    if notify:
+        asyncio.create_task(notify_users(s, e, msg))
     await audit(a["id"], "admin.maintenance", None, {"enabled": body.enabled, "start_at": body.start_at, "end_at": body.end_at}, request)
-    return _out(await _doc())
+    return {**_out(await _doc()), "users_notified": bool(notify)}

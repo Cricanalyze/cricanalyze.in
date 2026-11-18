@@ -187,6 +187,8 @@ EMAIL_TEMPLATES = {
     "join_request": ("New join request — {academy}", "Join request", "{player} asked to join {academy}. Review it in CricAnalyze: {link}", False),
     "join_decision": ("Your request to join {academy}", "Academy request {decision}", "Your request to join {academy} was {decision}.", False),
     "coach_approval": ("Your CricAnalyze coach account was {decision}", "Account {decision}", "{message}", False),
+    "maintenance": ("Scheduled maintenance — CricAnalyze", "Scheduled maintenance",
+                    "CricAnalyze will be under maintenance from {start} to {end} (IST). During this time the website and app will be unavailable. {message}", False),
     "notice": ("Important account notice — CricAnalyze", "Account notice", "{message}", False),
     "test": ("CricAnalyze SMTP test", "SMTP test", "This is a test email from the CricAnalyze admin console.", False),
 }

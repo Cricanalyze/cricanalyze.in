@@ -50,7 +50,7 @@ export const MaintenanceAdmin = () => {
   const fromM = (x) => ({ enabled: x.enabled, start_at: toIST(x.start_at), end_at: toIST(x.end_at), message: x.message });
   useEffect(() => { if (m && !f) setF(fromM(m)); }, [m, f]);
   if (!f) return "Loading…";
-  const save = async (body) => { try { await api.put("/admin/maintenance", body); toast.success("Maintenance schedule saved."); const d = await load(); if (d) setF(fromM(d)); } catch (e) { toast.error(errMsg(e)); } };
+  const save = async (body) => { try { const r = await api.put("/admin/maintenance", body); toast.success(r.data?.users_notified ? "Maintenance scheduled. All registered users are being emailed." : "Maintenance schedule saved."); const d = await load(); if (d) setF(fromM(d)); } catch (e) { toast.error(errMsg(e)); } };
   return (<Card className="max-w-2xl space-y-4" data-testid="maintenance-admin">
     <div className="flex justify-between items-center"><h3 className="font-semibold">Scheduled maintenance</h3>
       {m.active ? <Badge tone="amber">Live now</Badge> : m.enabled ? <Badge tone="teal">Scheduled</Badge> : <Badge>Off</Badge>}</div>

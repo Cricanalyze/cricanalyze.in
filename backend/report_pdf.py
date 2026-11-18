@@ -6,10 +6,10 @@ from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.utils import ImageReader
 from reportlab.platypus import BaseDocTemplate, PageTemplate, Frame, Paragraph, Spacer, Table, TableStyle, KeepTogether, Image
-from core import db, now, uid, get_object, put_object, BUCKET_PREFIX
+from core import db, now, uid, get_object, put_object, BUCKET_PREFIX, APP_URL
 import report_view
 
-PDF_VERSION = "4.0"
+PDF_VERSION = "4.2"
 HERO = 190
 LOGO = Path(__file__).parent / "assets" / "logo_sm.png"
 NAVY, TEAL, EMERALD, INK, MUTED, LINE, SOFT = (colors.HexColor(c) for c in ("#0B132B", "#00A6C4", "#10B981", "#1C2541", "#5B6477", "#D6DCE5", "#F2F6FA"))
@@ -133,7 +133,8 @@ def _page(title, rep_id, generated, v):
         c.line(M, 30, W - M, 30)
         c.setFont("Helvetica", 7.5)
         c.setFillColor(MUTED)
-        c.drawString(M, 18, f"CricAnalyze - Buddy Innovations and Technologies Private Limited - cricanalyze.in   |   Generated {generated}")
+        c.drawString(M, 18, f"CricAnalyze by Buddy Innovations and Technologies Private Limited  |  Generated {generated}")
+        c.setFont("Helvetica", 7)
         c.drawRightString(W - M, 18, f"Report {rep_id[:8].upper()} - v{PDF_VERSION} - Page {doc.page}")
         c.restoreState()
     return draw
@@ -300,7 +301,9 @@ def build(rep, job, owner, blobs):
     draw = _page(title, rep["id"], generated, v)
     doc.addPageTemplates([PageTemplate(id="first", frames=[Frame(M, 44, CW, H - HERO - 16 - 44, id="f1")], onPage=draw, autoNextPageTemplate="later"),
                           PageTemplate(id="later", frames=[Frame(M, 44, CW, H - 50 - 44, id="f2")], onPage=draw)])
-    s = [kpis(v), Spacer(1, 10)]
+    link = f"{APP_URL}/app/analyses/{job['id']}"
+    s = [Paragraph(f"<font color='#DC2626'><b>Please go through the website for the in-detail analysis:</b> <a href='{link}' color='#DC2626'>{t(link)}</a></font>", ST["body"]),
+         Spacer(1, 8), kpis(v), Spacer(1, 10)]
     tk = [[Paragraph(f"<font size=16 color='#00A6C4'><b>{i + 1}</b></font>", ST["body"]), P(x)] for i, x in enumerate(v["takeaways"])]
     s += section("Three key takeaways", cards([[Table([r], colWidths=[18, (CW - 16) / 3 - 40], style=[("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0)])] for r in tk], 3,
                                               bars=[TEAL, EMERALD, colors.HexColor("#F59E0B")]), kicker="At a glance")

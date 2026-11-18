@@ -787,15 +787,14 @@ async def deliver_report(job_id, to=None):
     token = await ensure_share(job)
     job = await db.analysis_jobs.find_one({"id": job_id}, {"_id": 0})
     attachments, note = None, "Open the report in CricAnalyze for the full view."
-    if (await entitlements(job["user_id"]))["pdf_export"]:
-        try:
-            viewer = {**owner, "role": "player"}
-            rep = await load_report_for(viewer, job)
-            await attach_view(viewer, job, rep)
-            attachments = [(f"cricanalyze-{job_id[:8]}.pdf", await pdfgen.get_or_build(rep, job, owner), "application/pdf")]
-            note = "Your PDF report is attached."
-        except Exception as e:
-            log.warning(f"report pdf for email failed {sanitize_error(e)}")
+    try:
+        viewer = {**owner, "role": "player"}
+        rep = await load_report_for(viewer, job)
+        await attach_view(viewer, job, rep)
+        attachments = [(f"cricanalyze-{job_id[:8]}.pdf", await pdfgen.get_or_build(rep, job, owner), "application/pdf")]
+        note = "Your PDF report is attached. Please go through the website for the in-detail analysis."
+    except Exception as e:
+        log.warning(f"report pdf for email failed {sanitize_error(e)}")
     ok = await send_email(to or owner["email"], "report_delivery", {"kind": job["analysis_type"], "link": f"{APP_URL}/app/analyses/{job_id}",
                                                                     "share": f"{APP_URL}/r/{token}", "pdf_note": note}, owner["id"], attachments)
     await db.analysis_jobs.update_one({"id": job_id}, {"$set": {"last_emailed_at": now()} if ok else {"last_email_error": "send failed"}})
