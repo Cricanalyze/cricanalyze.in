@@ -1,0 +1,20 @@
+{
+  "summary": "Tested removal of coach/academy ID upload + admin approval. Backend 7/7 pytest pass: coach & academy_admin signups via @example.com get approval_status None, after verify can hit /auth/me, /academies/mine and create an academy with no 403; existing qa.coach (academy_admin) and qa.pendingcoach (coach, now approved) work; removed endpoints /api/account/verification-doc, /api/admin/approvals, /api/admin/approvals/{id} return 404/405; admin users/settings/academies/commissions/api-keys load; player login OK. Frontend: /signup has no signup-coach-note or ID/certificate/approval text for coach/academy roles; full UI signup (coach) -> OTP verify -> lands on /app dashboard, /app/academy, /app/coach, /app/settings with no approval gate; both existing coach accounts reach dashboard/academy/coach pages with no gate; admin panel has 15 tabs, no 'Coach approvals' (admin-tab-approvals count 0), Users/Commissions/API keys/Plans/Academies/Flags/Audit tabs render with no errors; home academy section shows 'Player-controlled sharing' and no 'Verified coaches only'; player pages /app, /app/analyses, /app/billing, /app/academy load.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Public.jsx (features/pricing role cards, line 34)", "issues": ["Coaches card still lists 'Verified coach accounts' — stale now that verification/approval is removed. Also 'Full access to added players' conflicts with the new 'Player-controlled sharing' message (coaches only see reports players share)."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iter7_no_coach_approval.py", "/app/test_reports/pytest/iter7.xml"],
+  "action_items": ["Update frontend/src/pages/Public.jsx line 34 copy: remove 'Verified coach accounts' and reword 'Full access to added players' to match player-controlled sharing (minor)."],
+  "critical_code_review_comments": ["auth_routes.signup sets approval_status None also when re-signing up an unverified existing user — fine. core.current_user has no approval gate. No leftover approval/verification-doc references in frontend or backend besides the Public.jsx copy."],
+  "updated_files": ["/app/backend/tests/test_iter7_no_coach_approval.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Created TEST coach/academy_admin users with @example.com emails plus one TEST academy; all deleted by email/id after tests.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Approval gate removed and verified. Admin extra routes use prefix /api/admin (e.g. /api/admin/commissions, /api/admin/api-keys). Playwright env has no pymongo — get OTP codes from db.dev_outbox with mongosh in bash, then open /verify-email?email=... in a new browser session. The 'pending' text on qa.pendingcoach pages is just the user's name 'QA Pending Coach', not a gate."
+}

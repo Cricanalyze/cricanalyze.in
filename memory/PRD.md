@@ -120,3 +120,4 @@ User request: always show Overall Technique Score XX/100 when >=1 valid measurem
 - Report email always attaches PDF; PDF v4.2 page 1 red note "Please go through the website for the in-detail analysis" + link
 - Tested: iteration_6 100% backend/frontend
 - Open: APP_URL secret still holds old preview domain (links in emails/PDF); maintenance notify is in-process (not persisted)
+- 2026-11-18: Coach/academy ID upload + admin approval removed (user choice). Signup sets approval_status None; gate in core.current_user, /account/verification-doc, /admin/approvals*, ApprovalGate UI and admin "Coach approvals" tab deleted; existing pending coaches migrated to approved. Tested iteration_7 100%.

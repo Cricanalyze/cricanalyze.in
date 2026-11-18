@@ -31,7 +31,7 @@ const FEATURES = [
 
 const WHO = [["Players", "Specific, evidence-linked feedback and a plan for your next sessions.", ["Technique score /100", "Weight transfer & head position", "Drills + weekly plan", "Join your academy with a code"]],
   ["Parents", "Support young players with guardian consent and privacy built in.", ["Guardian consent for under-18s", "Private video storage", "Reports emailed to you", "Delete data anytime"]],
-  ["Coaches", "Review your players' shared reports and add your own feedback.", ["Verified coach accounts", "Full access to added players", "Leaderboards with nicknames", "Attendance & feedback"]],
+  ["Coaches", "Review your players' shared reports and add your own feedback.", ["Start right after sign-up", "Reports players share with you", "Leaderboards with nicknames", "Attendance & feedback"]],
   ["Academies", "Manage batches, coaches and progress in one private workspace.", ["Unique academy join code", "Approve join requests", "Referral commission", "Coach & Academy plans"]]];
 
 export const Home = () => {
